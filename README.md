@@ -80,9 +80,9 @@ Each `tulip-tables` node is configured to send data to a single Tulip Tables API
 - **Name**: Display name for the node instance in the editor
 - **Tulip Api Authentication**: A configuration node with authentication details for an API bot on your Tulip account. The API bot must have `tables:read` and `tables:write` permissions for read and write operations respectively. See more details in the [Tulip API Auth Node](#tulip-api-auth-node) section.
 - **Query Type**: This field determines which endpoint to send the request to. All other configuration is dependent on the query type. For example, using the endpoint "Count records", the following configuration values will appear (from the API docs):
-  - Table ID: The id of a Tulip Table.
-  - Filters: An optional array of filter expressions to filter the Table records by. Each filter is an object specifying the `field` (name of a table column), `functionType` (comparison function), and `arg` (the value to compare to).
-  - Filter Aggregator: How the filters in the filter parameter are combined. `all` means that every filter must match a record in order for the record to be included. `any` means at least one filter must match a record in order for the record to be included.
+  - *Table ID*: The id of a Tulip Table.
+  - *Filters*: An optional array of filter expressions to filter the Table records by. Each filter is an object specifying the `field` (name of a table column), `functionType` (comparison function), and `arg` (the value to compare to).
+  - *Filter Aggregator*: How the filters in the filter parameter are combined. `all` means that every filter must match a record in order for the record to be included. `any` means at least one filter must match a record in order for the record to be included.
 
 
 ### Inputs
@@ -97,6 +97,8 @@ Each `tulip-tables` node is configured to send data to a single Tulip Tables API
 
 
 ## Tulip API Auth Node
+
+### Overview
 
 Each `tulip-api-auth` node configures authentication for using the Tulip API. The API credentials should be for a bot on the specified factory instance that has the correct permissions to make the specified API calls.
 
