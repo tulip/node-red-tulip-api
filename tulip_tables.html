@@ -1,0 +1,425 @@
+<script src='node-red-tulip-edge/js/tulip_tables_common.js'></script>
+
+<script type='text/javascript'>
+  const QUERY_TYPES = this.tulip_tables_common.TABLE_QUERY_TYPES;
+  RED.nodes.registerType('tulip-tables', {
+    category: 'Tulip',
+    inputs: 1,
+    outputs: 1,
+    color: '#65CCB8',
+    icon: 'tulip.svg',
+    defaults: {
+      name: { value: 'tulip-tables' },
+      apiAuth: {
+        value: '',
+        type: 'tulip-api-auth',
+        required: true
+      },
+      // Which API call to use
+      queryType: { value: 0 },
+
+      // String parameters
+      tableId: { value: '' },
+      queryId: { value: '' },
+      aggregationId: { value: '' },
+      recordId: { value: '' },
+      fieldId: { value: '' },
+      sortBy: { value: '_sequenceNumber' },
+      sortByFieldId: { value: '' },
+      sortDir: { value: 'asc' },
+      function: { value: 'sum' },
+      filterAggregator: { value: 'all' },
+
+      // Ints
+      limit: { value: 10 },
+      offset: { value: 0 },
+
+      // Bool parameters
+      includeDeleted: { value: false },
+      includeTotalCount: { value: false },
+      allowRecordsInUse: { value: false },
+
+      // Arrays
+      field: { value: [] },
+      filters: { value: [] },
+      sortOptions: { value: [] },
+
+      body: { value: '{}' } // JSON body
+    },
+    paletteLabel: 'tables',
+    label: function() {
+      return this.name || 'tulip-machine-attribute';
+    },
+    oneditprepare: function() {
+      const node = this;
+      // Create dropdown menu of table query types
+      const nQueryTypes = QUERY_TYPES.length;
+      const querySelect = document.getElementById('node-input-queryType');
+      for (let i = 0; i < nQueryTypes; i++) {
+        const option = document.createElement('option');
+        option.value = i;
+        option.text = QUERY_TYPES[i].text;
+        querySelect.add(option);
+      }
+      // Select the current query type
+      querySelect.selectedIndex = node.queryType;
+
+      // Show all relevant parameters to this query
+      const queryTypeInfo = QUERY_TYPES[node.queryType];
+      const params = queryTypeInfo.pathParams.concat(queryTypeInfo.queryParams);
+      params.forEach((param) => {
+        const divToShow = `#div-node-input-${param}`;
+        $(divToShow).show();
+      });
+
+      // Set the document to hide/show elements for different query selections
+      $(querySelect).data('prevQueryType', node.queryType);
+      $(querySelect).change(function(data) {
+        const newQueryType = $(this).val();
+        const oldQueryType = $(this).data('prevQueryType');
+
+        // Hide all parameters for old query type
+        const oldInfo = QUERY_TYPES[oldQueryType];
+        const oldParams = oldInfo.pathParams.concat(oldInfo.queryParams);
+        oldParams.forEach((param) => {
+          const divToHide = `#div-node-input-${param}`;
+          $(divToHide).hide();
+        });
+
+        // Show all parameters for new query type
+        const newInfo = QUERY_TYPES[newQueryType];
+        const newParams = newInfo.pathParams.concat(newInfo.queryParams);
+        newParams.forEach((param) => {
+          const divToShow = `#div-node-input-${param}`;
+          $(divToShow).show();
+        });
+
+        // If POST or PUT request, also show request body
+        if (newInfo.method == 'POST' || newInfo.method == 'PUT') {
+          $('#div-node-input-body').show();
+        } else {
+          $('#div-node-input-body').hide();
+        }
+
+        // Save the current query type
+        $(this).data('prevQueryType', newQueryType);
+      });
+
+      // Show custom sortBy field
+      const sortBySelect = document.getElementById('node-input-sortBy');
+      $(sortBySelect).change(function(data) {
+        if  ($(this).val() == 'other') {
+          $(`#div-node-input-sortByOther`).show();
+        } else {
+          $(`#div-node-input-sortByOther`).hide();
+        }
+      });
+
+      // Convert JSON inputs to typedInput
+      $('#node-input-body').typedInput({
+        type: 'json',
+        types: ['json']
+      });
+
+      // Adds an editableList widget for the given parameter `p`
+      // of the specified type `t`
+      function addEditableTypedList(param, paramType) {
+
+        // Creates a function to be called when adding a list item
+        // for this parameter & type
+        const getAddItem = function() {
+          return function(container, i, data) {
+            container.css({
+              overflow: 'hidden',
+              whiteSpace: 'nowrap'
+            });
+            const row = $('<div/>').appendTo(container);
+
+            // Create the TypedInput element
+            const typedInputElem = $('<input/>', {
+                class: `node-input-${param}-value`,
+                type: 'text',
+                width: '100%'
+              })
+              .appendTo(row)
+              .typedInput({
+                default: paramType,
+                types: [paramType],
+                type: paramType
+              })
+              .typedInput('show');
+
+            // Set the TypedInput element value
+            if (data.value != undefined) {
+              typedInputElem.typedInput('value', data.value);
+            } else {
+              // Use default value based on type
+              switch (paramType) {
+                case 'str':
+                  typedInputElem.typedInput('value', '');
+                  break;
+                case 'json':
+                  typedInputElem.typedInput('value', '{}');
+                  break;
+              }
+            }
+          };
+        };
+
+        // Create the editable list
+        $(`#node-input-${param}-container`).editableList({
+          addButton: true,
+          height: 'auto',
+          scrollOnAdd: true,
+          sortable: true,
+          removable: true,
+          addItem: getAddItem()
+        });
+
+        // Populate list with current values
+        node[param].forEach((v) => {
+          const value = (paramType == 'json') ? JSON.stringify(v) : v;
+          $(`#node-input-${param}-container`).editableList('addItem', { value });
+        });
+      }
+
+      // Add editableList widget for list parameters
+      addEditableTypedList('field', 'str');
+      addEditableTypedList('filters', 'json');
+      addEditableTypedList('sortOptions', 'json');
+    },
+    oneditsave: function() {
+      const node = this;
+
+      // Saves values in EditableList to the node config
+      function saveListValues(param, paramType) {
+        const entries = $(`#node-input-${param}-container`).editableList('items');
+        node[param] = [];
+        entries.each(function(e) {
+          // Iterate through list items in UI
+          const entry = $(this);
+          const entryValue = entry.find(`.node-input-${param}-value`).val();
+          switch (paramType) {
+            // Push non-empty values
+            case 'str':
+              if (entryValue != '') {
+                node[param].push(entryValue);
+              }
+              break;
+            case 'json':
+              if (entryValue != '{}') {
+                node[param].push(JSON.parse(entryValue));
+              }
+              break;
+          }
+        });
+        // Overwrite the node's config
+        this[param] = node[param];
+      }
+
+      // Save list parameters
+      saveListValues('field', 'str');
+      saveListValues('filters', 'json');
+      saveListValues('sortOptions', 'json');
+    }
+  });
+</script>
+
+<script type='text/html' data-template-name='tulip-tables'>
+  <div class='form-row'>
+    <label for='node-input-name'><i class='fa fa-tag'></i> Name</label>
+    <input type='text' id='node-input-name' placeholder='Name'>
+  </div>
+  <div class='form-row'>
+    <label for='node-input-apiAuth'><i class='fa fa-user-circle'></i> Tulip API Authentication</label>
+    <input id='node-input-apiAuth'>
+  </div>
+  <div class='form-row'>
+    <label for='node-input-queryType'></i> Query Type</label>
+    <select id='node-input-queryType' style='width:70%'>
+    </select>
+  </div>
+  <hr />
+  <label style='width:100%;'>
+    <h4>Query Options</h4>
+  </label>
+  <div class='form-row' id='div-node-input-includeDeleted' hidden>
+    <input type='checkbox' id='node-input-includeDeleted' autocomplete='off'
+      style='margin-left:10px; vertical-align:top; width:auto'>
+    <label for='node-input-includeDeleted' style='width:auto'>Include deleted tables</label>
+  </div>
+  <div class='form-row' id='div-node-input-includeTotalCount' hidden>
+    <input type='checkbox' id='node-input-includeTotalCount' autocomplete='off'
+      style='margin-left:10px; vertical-align:top; width:auto'>
+    <label for='node-input-includeTotalCount' style='width:auto'>Include total count</label>
+  </div>
+  <div class='form-row' id='div-node-input-allowRecordsInUse' hidden>
+    <input type='checkbox' id='node-input-allowRecordsInUse' autocomplete='off'
+      style='margin-left:10px; vertical-align:top; width:auto'>
+    <label for='node-input-allowRecordsInUse' style='width:auto'>Allow records in use</label>
+  </div>
+  <div class='form-row' id='div-node-input-tableId' hidden>
+    <label for='node-input-tableId'> Table ID</label>
+    <input type='text' id='node-input-tableId' placeholder='tableId'>
+  </div>
+  <div class='form-row' id='div-node-input-queryId' hidden>
+    <label for='node-input-queryId'> Query ID</label>
+    <input type='text' id='node-input-queryId' placeholder='queryId'>
+  </div>
+  <div class='form-row' id='div-node-input-recordId' hidden>
+    <label for='node-input-recordId'> Record ID</label>
+    <input type='text' id='node-input-recordId' placeholder='recordId'>
+  </div>
+  <div class='form-row' id='div-node-input-aggregationId' hidden>
+    <label for='node-input-aggregationId'> Aggregation ID</label>
+    <input type='text' id='node-input-aggregationId' placeholder='aggregationId'>
+  </div>
+  <div class='form-row' id='div-node-input-fieldId' hidden>
+    <label for='node-input-fieldId'> Field ID</label>
+    <input type='text' id='node-input-fieldId' placeholder='fieldId'>
+  </div>
+  <div class='form-row' id='div-node-input-function' hidden>
+    <label for='node-input-function'> Aggregation Function</label>
+    <select id='node-input-function' style='width:70%;'>
+      <option value='sum' selected>Sum</option>
+      <option value='count'>Count</option>
+      <option value='avg'>Average</option>
+      <option value='min'>Minimum</option>
+      <option value='max'>Maximum</option>
+      <option value='mode'>Mode</option>
+    </select>
+  </div>
+  <div id='div-node-input-sortBy' hidden>
+    <div class='form-row'>
+      <label for='node-input-sortBy'> Sort By</label>
+      <select id='node-input-sortBy' style='width:70%;'>
+        <option value='_sequenceNumber' selected>Sequence Number</option>
+        <option value='_updatedAt'>Updated At</option>
+        <option value='_createdAt'>Created At</option>
+        <option value='other'>(choose table field)</option>
+      </select>
+    </div>
+    <div class='form-row' id='div-node-input-sortByOther' hidden>
+      <label for='node-input-sortByOther'>&nbsp;</label>
+      <span style='width:70%'>
+        <span style='padding-right:2px; width:auto;'>Table Field:</span>
+        <input type='text' id='node-input-sortByOther' style='width:auto;'>
+      </span>
+    </div>
+  </div>
+  <div class='form-row' id='div-node-input-sortDir' hidden>
+    <label for='node-input-sortDir'> Sort Direction</label>
+    <select id='node-input-sortDir' style='width:70%;'>
+      <option value='asc' selected>Ascending</option>
+      <option value='desc'>Descending</option>
+    </select>
+  </div>
+  <div class='form-row' id='div-node-input-sortOptions' hidden>
+    <label for='node-input-sortOptions'>Sort Options</label>
+    <ol id='node-input-sortOptions-container'></ol>
+  </div>
+  <div class='form-row' id='div-node-input-filters' hidden>
+    <label for='node-input-filters'>Filters</label>
+    <ol id='node-input-filters-container'></ol>
+  </div>
+  <div class='form-row' id='div-node-input-filterAggregator' hidden>
+    <label for='node-input-filterAggregator'>Filter Aggregator</label>
+    <select id='node-input-filterAggregator' style='width:70%;'>
+      <option value='all' selected>all</option>
+      <option value='any'>any</option>
+    </select>
+  </div>
+  <div class='form-row' id='div-node-input-limit'hidden>
+    <label for='node-input-limit'> Limit</label>
+    <input type='number' min=0 step=1 id='node-input-limit' value=10>
+  </div>
+  <div class='form-row' id='div-node-input-offset' hidden>
+    <label for='node-input-offset'> Offset</label>
+    <input type='number' min=0 step=1 id='node-input-offset' value=0>
+  </div>
+  <div class='form-row' id='div-node-input-field' hidden>
+    <label for='node-input-field'>Fields</label>
+    <ol id='node-input-field-container'></ol>
+  </div>
+  <div id='div-node-input-body'>
+    <hr />
+    <label style='width:100%;'>
+      <h4>Request Body Options</h4>
+    </label>
+    <div class='form-row'>
+      <label for='node-input-body'> Request Body</label>
+      <input type='text' id='node-input-body'>
+    </div>
+  </div>
+</script>
+
+<script type='text/html' data-help-name='tulip-tables'>
+  <p>Reads & manipulates data in Tulip Tables using the Tulip Tables API.</p>
+
+  <h3>Inputs</h3>
+  <dl class='message-properties'>
+    <dt class='optional'>
+      body
+      <span class='property-type'>JSON</span>
+    </dt>
+    <dd>
+      If the query type is a POST or PUT request, the body of the request. Overrides the data
+      in the "Request Body" field.
+    </dd>
+    <dt class='optional'>
+      [parameter]
+    </dt>
+    <dd>
+      Any parameter of a Tulip Tables API request can be set by the input <code>msg.[parameter]</code>.
+      The message value overrides the parameter value set by the node configuration.
+    </dd>
+  </dl>
+
+  <h3>Outputs</h3>
+  <ol class='node-ports'>
+      <dl class='message-properties'>
+        <dt>response <span class='property-type'>JSON</span></dt>
+        <dd>the HTTP response from the API request</dd>
+        <dt>payload</dt>
+        <dd>
+          The parsed response body.
+        </dd>
+      </dl>
+  </ol>
+
+  <h3>Overview</h3>
+  <p>Each <code>tulip-tables</code> node is configured to send data to a Tulip Tables API endpoint. On an input message, the
+    node will send the configured request and output the HTTP response along with any returned data. The "Query Type" field
+    determines the type of request, relevant parameters, and the response data type. See the Tulip Tables API documentation
+    for more information on the different types of requests.
+  </p>
+  <p>
+    To send data to a given factory instance, you must configure a <code>tulip-api-auth</code> node with authentication details.
+    The bot used for authentication must have the appropriate permissions: either <code>tables:read</code>, <code>tables:write</code>,
+    <code>table-queries:read</code>, or <code>table-queries:write</code>, depending on the type of request. This authentication node
+    can be shared between multiple nodes that require Tulip API authentication.</p>
+
+  <h3>Advanced Operation</h3>
+  <p>
+    The Tulip Tables API request parameters are specified in the node configuration. However, all parameters can also be specified by the
+    input <code>msg</code>, and this value will dynamically override the static parameter value in the node configuration. For example,
+    if you the "Table ID" field set to <code>id1</code> but send an input with <code>msg.tableId=id2</code>, the request will set parameter
+    <code>tableId</code> to <code>id2</code>. The parameters <code>sortOptions</code> and <code>filters</code> can be set by the <code>msg</code>,
+    and the request body (if a POST or PUT request) can be set by <code>msg.body</code>.
+  </p>
+
+  <h3>References</h3>
+  <ul>
+    <li><a href=https://support.tulip.co/en/articles/2835889-an-overview-of-tables>
+      <b>Overview of Tulip Tables</b>
+    </a></li>
+    <li><a href=https://support.tulip.co/en/articles/3983173-how-to-use-the-table-api>
+      <b>How to Use the Table API</b>
+    </a></li>
+    <li>
+      <b>Tulip API Documentation:</b> available at <a>https://[your-factory-url]/apiDocs</a>, see Tulip Tables endpoints.
+    </li>
+  </ul>
+</script>
+
+

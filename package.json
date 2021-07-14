@@ -1,0 +1,36 @@
+{
+  "name": "@tulip/node-red-tulip-api",
+  "version": "0.1.0",
+  "description": "Node-RED nodes for sending data to the Tulip API",
+  "main": "index.js",
+  "node-red": {
+    "nodes": {
+      "tulipMachineAttribute": "tulip_machine_attribute.js",
+      "tulipTables": "tulip_tables.js",
+      "tulipApiAuth": "tulip_api_auth.js"
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tulip/node-red-tulip-api.git"
+  },
+  "keywords": [
+    "edge",
+    "node-red",
+    "machine",
+    "machine monitoring",
+    "tables",
+    "api",
+    "tulip"
+  ],
+  "author": "Kathy Camenzind",
+  "license": "Apache-2.0",
+  "private": false,
+  "bugs": {
+    "url": "https://github.com/tulip/node-red-tulip-api/issues"
+  },
+  "homepage": "https://github.com/tulip/node-red-tulip-api#readme",
+  "dependencies": {
+    "request": "^2.87.0"
+  }
+}

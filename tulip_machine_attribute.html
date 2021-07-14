@@ -1,0 +1,170 @@
+<script type="text/javascript">
+  RED.nodes.registerType('tulip-machine-attribute', {
+    category: 'Tulip',
+    inputs: 1,
+    outputs: 1,
+    color: '#65CCB8',
+    icon: 'tulip.svg',
+    defaults: {
+      name: { value: 'tulip-machine-attribute' },
+      apiAuth: {
+        value: '',
+        type: 'tulip-api-auth',
+        required: true,
+      },
+      deviceInfo: {
+        value: '{"attributeId":"","deviceId":""}',
+        required: true,
+      },
+      payloadSource: {
+        value: 'payload',
+        required: true,
+        validate: RED.validators.typedInput('payloadType'),
+      },
+      payloadType: { value: 'msg' },
+    },
+    paletteLabel: 'machine-attr',
+    label: function () {
+      return this.name || 'tulip-machine-attribute';
+    },
+    oneditprepare: function () {
+      // Add useCustomApiAuth as a property to transition legacy nodes. Set to true since
+      // previously a custom auth was required.
+      const node = this;
+
+      // Generate typed input fields
+      $('#node-input-payloadSource').typedInput({
+        default: 'msg',
+        types: ['msg', 'flow', 'global', 'str', 'num', 'jsonata', 'env'],
+        typeField: $('#node-input-payloadType'),
+      });
+      $('#node-input-deviceInfo').typedInput({
+        default: 'json',
+        types: ['json'],
+      });
+    },
+  });
+</script>
+
+<script type="text/html" data-template-name="tulip-machine-attribute">
+  <div class="form-row">
+    <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+    <input type="text" id="node-input-name" placeholder="Name" />
+  </div>
+  <div class="form-row">
+    <label for="node-input-apiAuth"
+      ><i class="fa fa-user-circle"></i> Tulip API Authentication</label
+    >
+    <input id="node-input-apiAuth" />
+  </div>
+  <div class="form-row">
+    <label for="node-input-deviceInfo"><i class="fa fa-clipboard"></i> Device Info</label>
+    <input type="text" id="node-input-deviceInfo" />
+  </div>
+  <div class="form-tips">
+    <b>Tip:</b> This field can be copy-pasted from your Tulip factory instance. Navigate to Shop
+    Floor > Machines, select your machine from the Machine Library, and click the clipboard icon
+    next to the target Machine Attribute to copy-paste its device info.
+  </div>
+
+  <hr />
+
+  <div class="form-row">
+    <h4>Advanced</h4>
+  </div>
+  <div class="form-row">
+    <label for="node-input-payloadSource"> Attribute Source</label>
+    <input type="text" id="node-input-payloadSource" />
+    <input type="hidden" id="node-input-payloadType" />
+  </div>
+</script>
+
+<script type="text/html" data-help-name="tulip-machine-attribute">
+  <p>Sends data to machine attribute endpoints using the Tulip Machine API.</p>
+
+  <h3>Inputs</h3>
+  <dl class='message-properties'>
+    <dt>
+      payload
+      <span class='property-type'>string | boolean | integer | float</span>
+    </dt>
+    <dd>
+      The value of the attribute to send. Should match the type of the machine attribute endpoint.
+    </dd>
+    <dt class='optional'>
+      machineId
+      <span class='property-type'>string</span>
+    </dt>
+    <dd>
+      Value to override the <code>machineId</code> set in "Device Info".
+    </dd>
+    <dt class='optional'>
+      attributeId
+      <span class='property-type'>string</span>
+    </dt>
+    <dd>
+      Value to override the <code>attributeId</code> set in "Device Info".
+    </dd>
+  </dl>
+
+  <h3>Outputs</h3>
+  <ol class='node-ports'>
+    <dl class='message-properties'>
+      <dt>response <span class='property-type'>JSON</span></dt>
+      <dd>the HTTP response from the API request</dd>
+    </dl>
+  </ol>
+
+  <h3>Overview</h3>
+  <p>
+    Each <code>tulip-machine-attribute</code> node is configured to send data to a Tulip Machine API endpoint.
+    To send data to a given factory instance, you must configure a <code>tulip-api-auth</code> nodde with authentication details.
+    The bot used for authentication must have <code>attributes:write</code> permissions.
+    This authentication node can be shared between <code>tulip-machine-attribute</code> nodes.
+  </p>
+
+  <h3>Details</h3>
+  <p>
+    For every <code>msg</code>, the node will by default send an POST request to
+    <a>https://[your-factory-url]/api/v3/attributes/report</a> with request body:
+
+  <pre><code>{
+    "attributes": [
+      {
+        "machineId": deviceInfo.machineId,
+        "attributeId": deviceInfo.attributeId,
+        "value": msg.payload
+      }
+    ]
+  }</code></pre>
+
+  </p>
+
+  <p>
+    For basic operation, only <code>msg.payload</code> needs to be passed into the node,
+    and the <code>deviceInfo</code> can be copy-pasted into "Device Info" from the Machine page on your factory instance.
+  </p>
+
+  <h3>Advanced Operation</h3>
+  <p>
+    For more advanced operation, you can specify the attribute value to come from a source other than <code>msg.payload</code>.
+    Supported sources are: properties of <code>msg</code>, <code>flow</code>, or <code>global</code>; strings; numbers;
+    JSONata expressions; environment variables.
+  </p>
+  <p>
+    You can also override the properties in the "Device Info" field with <code>msg</code> properties to configure the node to send to different endpoints.
+    Specifically, <code>msg.attributeId</code> will override <code>deviceInfo.attributeId</code>, and <code>msg.machineId</code> will override <code>deviceInfo.machineId</code>.
+    If you override either property with every <code>msg</code>, it is not needed in the "Device Info" field.
+    For example, if every <code>msg</code> has both <code>machineId</code> and <code>attribute</code> set, you can leave "Device Info" as <code>{}</code>.
+  </p>
+
+  <h3>References</h3>
+  <ul>
+    <li>
+      <a href=https://support.tulip.co/en/articles/4896233-using-node-red-with-edge-mc><b>Using Node-RED with Edge MC</b></a>
+    </li>
+    <li>
+      <b>Tulip API Documentation:</b> available at <a>https://[your-factory-url]/apiDocs</a>, see <code>/attributes/report</code> endpoint.
+    </li>
+  </ul>
+</script>
