@@ -49,11 +49,11 @@ Before using a `tulip-machine-attribute` node, make sure that you have completed
   - Click on the target machine
   - Copy-paste the JSON field with `attributeId` and `machineId` properties for the target machine attribute
 - **Attribute Source**: What source to use for the attribute value. For example, if set to `msg.payload`, the attribute will be sent the value of `msg.payload`; if set to a hardcoded string, the attribute will be sent the hardcoded string, etc. Supported sources are:
- - properties of `msg`, `flows`, or `global`
- - strings
- - numbers
- - JSONata expressions
- - environment variables
+  - properties of `msg`, `flows`, or `global`
+  - strings
+  - numbers
+  - JSONata expressions
+  - environment variables
 
 ### Inputs
 
@@ -79,7 +79,11 @@ Each `tulip-tables` node is configured to send data to a single Tulip Tables API
 
 - **Name**: Display name for the node instance in the editor
 - **Tulip Api Authentication**: A configuration node with authentication details for an API bot on your Tulip account. The API bot must have `tables:read` and `tables:write` permissions for read and write operations respectively. See more details in the [Tulip API Auth Node](#tulip-api-auth-node) section.
-- **Query Type**: This field determines which endpoint to send the request to. All other configuration is dependent on the query type, TODO
+- **Query Type**: This field determines which endpoint to send the request to. All other configuration is dependent on the query type. For example, using the endpoint "Count records", the following configuration values will appear (from the API docs):
+  - Table ID: The id of a Tulip Table.
+  - Filters: An optional array of filter expressions to filter the Table records by. Each filter is an object specifying the `field` (name of a table column), `functionType` (comparison function), and `arg` (the value to compare to).
+  - Filter Aggregator: How the filters in the filter parameter are combined. `all` means that every filter must match a record in order for the record to be included. `any` means at least one filter must match a record in order for the record to be included.
+
 
 ### Inputs
 
