@@ -15,6 +15,9 @@
         type: 'tulip-api-auth',
         required: true
       },
+      keepAlive: { value: true },
+      keepAliveMsecs: { value: 10000 },
+
       // Which API call to use
       queryType: { value: 0 },
 
@@ -52,6 +55,21 @@
     },
     oneditprepare: function() {
       const node = this;
+
+      // Whether or not to show keep-alive msecs option
+      const updateKeepAlive = () => {
+        const keepAlive = $('#node-input-keepAlive').is(':checked');
+        if (keepAlive) {
+          $('#div-node-input-keepAliveMsecs').show();
+        } else {
+          $('#div-node-input-keepAliveMsecs').hide();
+        }
+      }
+      updateKeepAlive();
+      $('#node-input-keepAlive').change(() => {
+        updateKeepAlive()
+      });
+
       // Create dropdown menu of table query types
       const nQueryTypes = QUERY_TYPES.length;
       const querySelect = document.getElementById('node-input-queryType');
@@ -235,6 +253,21 @@
     <input id='node-input-apiAuth'>
   </div>
   <div class='form-row'>
+    <label for='node-input-keepAlive'> HTTP Options</label>
+    <input
+      type='checkbox'
+      id='node-input-keepAlive'
+      autocomplete='off'
+      style='margin-left:10px; vertical-align:top; width:auto'
+    />
+    <label for='node-input-keepAlive' style='width:auto'>Enable Connection Keep-Alive</label>
+  </div>
+  <div class='form-row' id='div-node-input-keepAliveMsecs' hidden>
+    <label for="node-input-keepAliveMsecs">&nbsp;</label>
+    <span style="width:auto">Keep-Alive Initial Delay (ms)</span>
+    <input type='number' min=0 step=1 id='node-input-keepAliveMsecs' value=10000 style="width:auto">
+  </div>
+  <div class='form-row'>
     <label for='node-input-queryType'></i> Query Type</label>
     <select id='node-input-queryType' style='width:70%'>
     </select>
@@ -367,6 +400,14 @@
       in the "Request Body" field.
     </dd>
     <dt class='optional'>
+      headers
+      <span class='property-type'>JSON</span>
+    </dt>
+    <dd>
+      HTTP headers to include in the request. If a POST or PUT request, the header 'Content-Type'
+      will be set to 'application/json' and will override <code>msg.headers['Content-Type']</code>.
+    </dd>
+    <dt class='optional'>
       [parameter]
     </dt>
     <dd>
@@ -406,6 +447,11 @@
     if you the "Table ID" field set to <code>id1</code> but send an input with <code>msg.tableId=id2</code>, the request will set parameter
     <code>tableId</code> to <code>id2</code>. The parameters <code>sortOptions</code> and <code>filters</code> can be set by the <code>msg</code>,
     and the request body (if a POST or PUT request) can be set by <code>msg.body</code>.
+  </p>
+  <p>
+    You can configure the HTTP agent to use keep-alive by checking "Enable Connection Keep-Alive" (default=<code>true</code>),
+    and set the agent keepAliveMsecs (default=<code>10000ms</code>). Note that this sets the keep-alive behaviour of the HTTP agent,
+    which is different than setting the 'Connection': 'Keep-Alive' HTTP header (which can be set through <code>msg.headers</code>).
   </p>
 
   <h3>References</h3>

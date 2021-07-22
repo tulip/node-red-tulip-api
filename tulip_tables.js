@@ -2,7 +2,7 @@ module.exports = function (RED) {
   'use strict';
 
   const request = require('request');
-  const url = require('url');
+  const https = require('https');
   const tulipTables = require('./static/tulip_tables_common');
 
   // Tulip API node
@@ -12,6 +12,10 @@ module.exports = function (RED) {
     // Set node properties
     this.name = config.name;
     this.apiAuth = RED.nodes.getNode(config.apiAuth);
+    this.agent = new https.Agent({
+      keepAlive: config.keepAlive,
+      keepAliveMsecs: config.keepAliveMsecs,
+    });
     this.config = config;
     const node = this;
 
@@ -48,12 +52,15 @@ module.exports = function (RED) {
           user: node.apiAuth.credentials.apiKey,
           pass: node.apiAuth.credentials.apiSecret,
         },
+        agent: node.agent,
       };
 
       // If a POST request, add the request body
       if (hasBody) {
         options.body = JSON.stringify(getParamVal('body', msg));
-        options.headers = { 'Content-Type': 'application/json' };
+        options.headers = getHeaders(msg);
+      } else {
+        options.headers = msg.headers;
       }
 
       // Make the request
@@ -125,6 +132,24 @@ module.exports = function (RED) {
       } else {
         return undefined;
       }
+    }
+
+    /**
+     * Gets the headers for the Tulip API request. Uses the user-defined msg.headers,
+     * but overrides 'Content-Type' to 'application/json'.
+     */
+    function getHeaders(msg) {
+      // Default header for API request
+      const headers = msg.headers || {};
+
+      // Content-Type set by this node; overrides user value
+      if (headers['Content-Type']) {
+        node.warn(
+          `Overriding header 'Content-Type'='${headers['Content-Type']}'; must be 'application/json'`,
+        );
+      }
+      headers['Content-Type'] = 'application/json';
+      return headers;
     }
   }
 

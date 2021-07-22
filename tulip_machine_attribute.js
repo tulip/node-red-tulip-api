@@ -2,7 +2,7 @@ module.exports = function (RED) {
   'use strict';
 
   const request = require('request');
-  const url = require('url');
+  const https = require('https');
   const { v4: uuidv4 } = require('uuid');
 
   // Tulip API node
@@ -15,6 +15,10 @@ module.exports = function (RED) {
     this.deviceInfo = JSON.parse(config.deviceInfo);
     this.payloadSource = config.payloadSource;
     this.payloadType = config.payloadType;
+    this.agent = new https.Agent({
+      keepAlive: config.keepAlive,
+      keepAliveMsecs: config.keepAliveMsecs,
+    });
 
     // Properties that depend on auth configuration
     this.apiCredentials = apiAuthNode.credentials;
@@ -27,20 +31,21 @@ module.exports = function (RED) {
       try {
         // Get the payload from user-defined input
         const payload = getPayload(msg, node);
+        const headers = getHeaders(msg, node);
 
         // Use either config or override with msg value
         const machineId = getDeviceInfo(msg, node.deviceInfo, 'machineId');
         const attributeId = getDeviceInfo(msg, node.deviceInfo, 'attributeId');
 
         // Everything is ok, send the payload
-        sendPayload(payload, machineId, attributeId, send, done);
+        sendPayload(payload, headers, machineId, attributeId, send, done);
       } catch (e) {
         done(e);
       }
     });
 
     // Sends payload to Tulip Machine API
-    function sendPayload(payload, machineId, attributeId, send, done) {
+    function sendPayload(payload, headers, machineId, attributeId, send, done) {
       const bodyObj = {
         attributes: [
           {
@@ -60,11 +65,12 @@ module.exports = function (RED) {
         url: endpoint,
         body,
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         auth: {
           user: node.apiCredentials.apiKey,
           pass: node.apiCredentials.apiSecret,
         },
+        agent: node.agent,
       };
 
       // Send request
@@ -101,6 +107,28 @@ module.exports = function (RED) {
       return url;
     }
 
+    /**
+     * Gets the headers for the Tulip API request. Uses the user-defined msg.headers,
+     * but overrides 'Content-Type' to 'application/json'.
+     */
+    function getHeaders(msg) {
+      // Default header for API request
+      const headers = msg.headers || {};
+
+      // Content-Type set by this node; overrides user value
+      if (headers['Content-Type']) {
+        node.warn(
+          `Overriding header 'Content-Type'='${headers['Content-Type']}'; must be 'application/json'`,
+        );
+      }
+      headers['Content-Type'] = 'application/json';
+      return headers;
+    }
+
+    /**
+     * If the machineId or attributeId is present in the msg, returns the value.
+     * Otherwise, returns the value from the statically configured Device Info field.
+     */
     function getDeviceInfo(msg, deviceInfo, param) {
       const paramVal = msg[param];
       const configVal = deviceInfo[param];
@@ -121,6 +149,10 @@ module.exports = function (RED) {
     }
   }
 
+  /**
+   * Gets the payload from the configured payload source.
+   * Throws an error if the payload is undefined.
+   */
   function getPayload(msg, node) {
     const payload = getTypedData(msg, node, node.payloadType, node.payloadSource);
     if (payload == undefined) {
@@ -129,6 +161,11 @@ module.exports = function (RED) {
     return payload;
   }
 
+  /*
+   * Gets the data from a TypedInput configuration field. If JSONata, evaluates the expression,
+   * otherwise evaluates the node property. Throws an error if the JSONata is invalid or if
+   * the specified property does not exist.
+   */
   function getTypedData(msg, node, dataType, dataVal) {
     if (dataType === 'jsonata') {
       // Evaluate JSONata expression
