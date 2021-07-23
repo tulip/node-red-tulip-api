@@ -48,6 +48,9 @@ Before using a `tulip-machine-attribute` node, make sure that you have completed
   - Click on **Shop Floor** > **Machines**
   - Click on the target machine
   - Copy-paste the JSON field with `attributeId` and `machineId` properties for the target machine attribute
+- **HTTP Options**:
+  - **Enable Connection Keep-Alive**: Whether to set `keepAlive=true` for the http agent. Note that this sets the keep-alive behaviour of the HTTP agent, which is different than setting the 'Connection': 'Keep-Alive' HTTP header.
+  - **Keep-Alive Initial Delay (ms)**: Sets the `keepAliveMsecs` of the http agent. Only relevant is keep-alive is enabled.
 - **Attribute Source**: What source to use for the attribute value. For example, if set to `msg.payload`, the attribute will be sent the value of `msg.payload`; if set to a hardcoded string, the attribute will be sent the hardcoded string, etc. Supported sources are:
   - properties of `msg`, `flows`, or `global`
   - strings
@@ -60,6 +63,7 @@ Before using a `tulip-machine-attribute` node, make sure that you have completed
 - `msg.payload`: The value of the attribute to send. Should match the type of the machine attribute endpoint. A different input property than `payload` can be set as the attribute value by setting the `Attribute Source` property.
 - `msg.machineId` (optional):  Value to override the `machineId` set in "Device Info".
 - `msg.attributeId` (optional): Value to override the `attrbiuteId` set in "Device Info"
+- `msg.headers` (optional): Extra headers for the HTTP API requests. Do not set `Content-Type`; it will always be overridden to `Content-Type: application/json`
 
 
 ### Outputs
@@ -79,6 +83,9 @@ Each `tulip-tables` node is configured to send data to a single Tulip Tables API
 
 - **Name**: Display name for the node instance in the editor
 - **Tulip Api Authentication**: A configuration node with authentication details for an API bot on your Tulip account. The API bot must have `tables:read` and `tables:write` permissions for read and write operations respectively. See more details in the [Tulip API Auth Node](#tulip-api-auth-node) section.
+- **HTTP Options**:
+  - **Enable Connection Keep-Alive**: Whether to set `keepAlive=true` for the http agent. Note that this sets the keep-alive behaviour of the HTTP agent, which is different than setting the 'Connection': 'Keep-Alive' HTTP header.
+  - **Keep-Alive Initial Delay (ms)**: Sets the `keepAliveMsecs` of the http agent. Only relevant is keep-alive is enabled.
 - **Query Type**: This field determines which endpoint to send the request to. All other configuration is dependent on the query type. For example, using the endpoint "Count records", the following configuration values will appear (from the API docs):
   - *Table ID*: The id of a Tulip Table.
   - *Filters*: An optional array of filter expressions to filter the Table records by. Each filter is an object specifying the `field` (name of a table column), `functionType` (comparison function), and `arg` (the value to compare to).
@@ -89,6 +96,7 @@ Each `tulip-tables` node is configured to send data to a single Tulip Tables API
 
 - `msg.body`: If the query type is a POST or PUT request, the body of the request. Overrides any data in the "Request Body" field.
 - `msg.[parameter]`: Any parameter of a Tulip Tables API request can be set by the input `msg.[parameter]`. The message value overrides the parameter value set by the node configuration. For example, `msg.tableId` will override "Table ID". The parameter name must match the parameter name listed in the API documentation.
+- `msg.headers` (optional): Extra headers for the HTTP API requests. Do not set `Content-Type`; it will always be overridden to `Content-Type: application/json`
 
 ### Outputs
 

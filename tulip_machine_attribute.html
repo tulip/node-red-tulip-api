@@ -12,6 +12,8 @@
         type: 'tulip-api-auth',
         required: true,
       },
+      keepAlive: { value: true },
+      keepAliveMsecs: { value: 10000 },
       deviceInfo: {
         value: '{"attributeId":"","deviceId":""}',
         required: true,
@@ -28,9 +30,19 @@
       return this.name || 'tulip-machine-attribute';
     },
     oneditprepare: function () {
-      // Add useCustomApiAuth as a property to transition legacy nodes. Set to true since
-      // previously a custom auth was required.
-      const node = this;
+      // Whether or not to show keep-alive msecs option
+      const updateKeepAlive = () => {
+        const keepAlive = $('#node-input-keepAlive').is(':checked');
+        if (keepAlive) {
+          $('#div-node-input-keepAliveMsecs').show();
+        } else {
+          $('#div-node-input-keepAliveMsecs').hide();
+        }
+      }
+      updateKeepAlive();
+      $('#node-input-keepAlive').change(() => {
+        updateKeepAlive()
+      });
 
       // Generate typed input fields
       $('#node-input-payloadSource').typedInput({
@@ -72,6 +84,21 @@
   <div class="form-row">
     <h4>Advanced</h4>
   </div>
+  <div class='form-row'>
+    <label for='node-input-keepAlive'> HTTP Options</label>
+    <input
+      type='checkbox'
+      id='node-input-keepAlive'
+      autocomplete='off'
+      style='margin-left:10px; vertical-align:top; width:auto'
+    />
+    <label for='node-input-keepAlive' style='width:auto'>Enable Connection Keep-Alive</label>
+  </div>
+  <div class='form-row' id='div-node-input-keepAliveMsecs' hidden>
+    <label for="node-input-keepAliveMsecs">&nbsp;</label>
+    <span style="width:auto">Keep-Alive Initial Delay (ms)</span>
+    <input type='number' min=0 step=1 id='node-input-keepAliveMsecs' value=10000 style="width:auto">
+  </div>
   <div class="form-row">
     <label for="node-input-payloadSource"> Attribute Source</label>
     <input type="text" id="node-input-payloadSource" />
@@ -104,6 +131,14 @@
     </dt>
     <dd>
       Value to override the <code>attributeId</code> set in "Device Info".
+    </dd>
+    <dt class='optional'>
+      headers
+      <span class='property-type'>JSON</span>
+    </dt>
+    <dd>
+      HTTP headers to include in the request. If a POST or PUT request, the header 'Content-Type'
+      will be set to 'application/json' and will override <code>msg.headers['Content-Type']</code>.
     </dd>
   </dl>
 
@@ -156,6 +191,11 @@
     Specifically, <code>msg.attributeId</code> will override <code>deviceInfo.attributeId</code>, and <code>msg.machineId</code> will override <code>deviceInfo.machineId</code>.
     If you override either property with every <code>msg</code>, it is not needed in the "Device Info" field.
     For example, if every <code>msg</code> has both <code>machineId</code> and <code>attribute</code> set, you can leave "Device Info" as <code>{}</code>.
+  </p>
+  <p>
+    Lastly, you can configure the HTTP agent to use keep-alive by checking "Enable Connection Keep-Alive" (default=<code>true</code>),
+    and set the agent keepAliveMsecs (default=<code>10000ms</code>). Note that this sets the keep-alive behaviour of the HTTP agent,
+    which is different than setting the 'Connection': 'Keep-Alive' HTTP header (which can be set through <code>msg.headers</code>).
   </p>
 
   <h3>References</h3>
