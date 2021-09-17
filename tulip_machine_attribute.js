@@ -3,6 +3,11 @@ module.exports = function (RED) {
 
   const request = require('request');
   const https = require('https');
+  const http = require('http');
+  const httpLibs = {
+      http,
+      https
+  }
   const { v4: uuidv4 } = require('uuid');
 
   // Tulip API node
@@ -15,7 +20,7 @@ module.exports = function (RED) {
     this.deviceInfo = JSON.parse(config.deviceInfo);
     this.payloadSource = config.payloadSource;
     this.payloadType = config.payloadType;
-    this.agent = new https.Agent({
+    this.agent = new httpLibs[apiAuthNode.protocol].Agent({
       keepAlive: config.keepAlive,
       keepAliveMsecs: config.keepAliveMsecs,
     });
