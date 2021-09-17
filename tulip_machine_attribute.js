@@ -5,8 +5,8 @@ module.exports = function (RED) {
   const https = require('https');
   const http = require('http');
   const httpLibs = {
-      http,
-      https
+    http,
+    https,
   }
   const { v4: uuidv4 } = require('uuid');
 
