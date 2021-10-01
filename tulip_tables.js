@@ -17,7 +17,7 @@ module.exports = function (RED) {
     // Set node properties
     this.name = config.name;
     this.apiAuth = RED.nodes.getNode(config.apiAuth);
-    this.agent = new httpLibs[apiAuth.protocol].Agent({
+    this.agent = new httpLibs[this.apiAuth.protocol].Agent({
       keepAlive: config.keepAlive,
       keepAliveMsecs: config.keepAliveMsecs,
     });
