@@ -2,7 +2,12 @@ module.exports = function (RED) {
   'use strict';
 
   const request = require('request');
+  const http = require('http');
   const https = require('https');
+  const httpLibs = {
+    http,
+    https,
+  }
   const tulipTables = require('./static/tulip_tables_common');
 
   // Tulip API node
@@ -12,7 +17,7 @@ module.exports = function (RED) {
     // Set node properties
     this.name = config.name;
     this.apiAuth = RED.nodes.getNode(config.apiAuth);
-    this.agent = new https.Agent({
+    this.agent = new httpLibs[apiAuth.protocol].Agent({
       keepAlive: config.keepAlive,
       keepAliveMsecs: config.keepAliveMsecs,
     });
