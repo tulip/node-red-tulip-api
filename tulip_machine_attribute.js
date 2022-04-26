@@ -80,7 +80,15 @@ module.exports = function (RED) {
       };
 
       // Create, send, handle, and close HTTP request
-      doHttpRequest(httpLib, endpoint, options, body, node.error);
+      doHttpRequest(
+        httpLib,
+        endpoint,
+        options,
+        body,
+        node.error.bind(node),
+        send,
+        done
+      );
     }
 
     function getFactoryUrl(protocol, hostname, port) {
