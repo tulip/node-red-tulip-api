@@ -64,7 +64,9 @@
     <input type="text" id="node-input-name" placeholder="Name" />
   </div>
   <div class="form-row">
-    <label><i class="fa fa-user-circle"></i> Tulip API Authentication</label>
+    <label for="node-input-apiAuth"
+      ><i class="fa fa-user-circle"></i> Tulip API Authentication</label
+    >
     <input id="node-input-apiAuth" />
   </div>
   <div class="form-row">
@@ -163,8 +165,10 @@
   <h3>Overview</h3>
   <p>
     Each <code>tulip-machine-attribute</code> node is configured to send data to a Tulip Machine API endpoint.
+    This endpoint is unique to a single machine attribute for a single machine on your Tulip factory instance.
     To send data to a given factory instance, you must configure a <code>tulip-api-auth</code> nodde with authentication details.
     The bot used for authentication must have <code>attributes:write</code> permissions.
+
     This authentication node can be shared between <code>tulip-machine-attribute</code> nodes.
   </p>
 

@@ -7,6 +7,7 @@ module.exports = function (RED) {
     http,
     https,
   };
+  const { doHttpRequest } = require('./utils');
 
   // Tulip API node
   function MachineAttrNode(config) {
@@ -18,6 +19,7 @@ module.exports = function (RED) {
     this.deviceInfo = JSON.parse(config.deviceInfo);
     this.payloadSource = config.payloadSource;
     this.payloadType = config.payloadType;
+
     this.apiCredentials = apiAuthNode.credentials;
     this.factoryUrl = getFactoryUrl(
       apiAuthNode.protocol,
@@ -74,59 +76,12 @@ module.exports = function (RED) {
         method: 'POST',
         auth: `${node.apiCredentials.apiKey}:${node.apiCredentials.apiSecret}`,
         agent: node.agent,
+        headers,
       };
 
-      // Make the http(s) request
-      const req = httpLib.request(endpoint, options, handler(send, done));
-      setHeaders(req, headers);
-
-      req.write(body);
-      req.on('error', (err) => {
-        done(err);
-      });
-
-      req.end();
+      // Create, send, handle, and close HTTP request
+      doHttpRequest(httpLib, endpoint, options, body, node.error);
     }
-
-    const setHeaders = function (req, headers) {
-      if (headers) {
-        Object.entries(headers).forEach(([header, val]) => {
-          req.setHeader(header, val);
-        });
-      }
-    };
-
-    // Returns a handler for the HTTP response that passes the body to `send`, and passes
-    // errors to onError
-    const handler = function (send, done) {
-      return (res) => {
-        if (res.statusCode < 200 || res.statusCode >= 300) {
-          // Request returns error code
-          node.error(new Error(`Response status code ${res.statusCode}`));
-        }
-
-        let body = '';
-        res.on('data', (chunk) => {
-          body += chunk;
-        });
-
-        // At the end of response, pass response body as msg.payload
-        res.on('end', () => {
-          const convertJSON =
-            res.headers['content-type'] &&
-            res.headers['content-type'].includes('application/json');
-
-          // if response is JSON, parse body as JSON
-          const payload = convertJSON ? JSON.parse(body) : body;
-          const msg = {
-            response: res,
-            payload,
-          };
-          send(msg);
-          done();
-        });
-      };
-    };
 
     function getFactoryUrl(protocol, hostname, port) {
       // start with valid protocol & host

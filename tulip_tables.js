@@ -8,6 +8,7 @@ module.exports = function (RED) {
     https,
   };
   const tulipTables = require('./static/tulip_tables_common');
+  const { doHttpRequest } = require('./utils');
 
   // Tulip API node
   function TablesNode(config) {
@@ -57,81 +58,52 @@ module.exports = function (RED) {
           method: queryInfo.method,
           auth: `${node.apiAuth.credentials.apiKey}:${node.apiAuth.credentials.apiSecret}`,
           agent: node.agent,
+          headers: getHeaders(hasBody, msg.headers),
         };
 
-        // Make the http(s) request
-        const req = httpLib.request(reqUrl, options, handler(send, done));
-        setHeaders(req, msg.headers);
-
+        let body;
         if (hasBody) {
           // Send the message body
           const rawBody = getParamVal('body', msg);
-          const body = JSON.stringify(rawBody);
-          req.write(body);
+          body = JSON.stringify(rawBody);
         }
 
-        req.on('error', (err) => {
-          done(err);
-        });
-
-        req.end();
+        // Create, send, handle, and close HTTP request
+        doHttpRequest(
+          httpLib,
+          reqUrl,
+          options,
+          body,
+          node.error.bind(node),
+          send,
+          done
+        );
       } catch (err) {
         // Catch unhandled errors so node-red doesn't crash
         done(err);
       }
     });
 
-    // Returns a handler for the HTTP response that passes the body to `send`, and passes
-    // errors to onError
-    const handler = function (send, done) {
-      return (res) => {
-        if (res.statusCode < 200 || res.statusCode >= 300) {
-          // Request returns error code
-          node.error(new Error(`Response status code ${res.statusCode}`));
-        }
-
-        let body = '';
-        res.on('data', (chunk) => {
-          body += chunk;
-        });
-
-        // At the end of response, pass response body as msg.payload
-        res.on('end', () => {
-          const convertJSON =
-            res.headers['content-type'] &&
-            res.headers['content-type'].includes('application/json');
-
-          // if response is JSON, parse body as JSON
-          const payload = convertJSON ? JSON.parse(body) : body;
-          const msg = {
-            response: res,
-            payload,
-          };
-          send(msg);
-          done();
-        });
-      };
-    };
-
-    const setHeaders = function (req, headers) {
-      if (headers) {
-        Object.entries(headers).forEach(([header, val]) => {
-          req.setHeader(header, val);
-        });
+    // Returns the headers object; if a request with a body sets the
+    // content-type to application/json
+    const getHeaders = function (hasBody, headers) {
+      if (!headers) {
+        // Initialize headers object if none exist
+        headers = {};
       }
-
       if (hasBody) {
         // Set content-type to some form of application/json if not already
-        const oldContentType = req.getHeader('content-type');
+        const oldContentType = headers['content-type'];
         if (oldContentType && !oldContentType.includes('application/json')) {
           node.warn(
             `Overriding header 'content-type'='${oldContentType}'; must be 'application/json'`
           );
-          req.setHeader('content-type', 'application/json');
+          headers['content-type'] = 'application/json';
         } else if (!oldContentType) {
-          req.setHeader('content-type', 'application/json');
+          headers['content-type'] = 'application/json';
         }
       }
+      return headers;
     };
 
     const getApiUrl = function (
