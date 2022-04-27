@@ -1,6 +1,6 @@
-<script src='node-red-tulip-edge/js/tulip_tables_common.js'></script>
+<script src="node-red-tulip-edge/js/tulip_tables_common.js"></script>
 
-<script type='text/javascript'>
+<script type="text/javascript">
   const QUERY_TYPES = this.tulip_tables_common.TABLE_QUERY_TYPES;
   RED.nodes.registerType('tulip-tables', {
     category: 'Tulip',
@@ -13,7 +13,7 @@
       apiAuth: {
         value: '',
         type: 'tulip-api-auth',
-        required: true
+        required: true,
       },
       keepAlive: { value: true },
       keepAliveMsecs: { value: 10000 },
@@ -47,13 +47,13 @@
       filters: { value: [] },
       sortOptions: { value: [] },
 
-      body: { value: '{}' } // JSON body
+      body: { value: '{}' }, // JSON body
     },
     paletteLabel: 'tables',
-    label: function() {
+    label: function () {
       return this.name || 'tulip-machine-attribute';
     },
-    oneditprepare: function() {
+    oneditprepare: function () {
       const node = this;
 
       // Whether or not to show keep-alive msecs option
@@ -64,10 +64,10 @@
         } else {
           $('#div-node-input-keepAliveMsecs').hide();
         }
-      }
+      };
       updateKeepAlive();
       $('#node-input-keepAlive').change(() => {
-        updateKeepAlive()
+        updateKeepAlive();
       });
 
       // Create dropdown menu of table query types
@@ -92,7 +92,7 @@
 
       // Set the document to hide/show elements for different query selections
       $(querySelect).data('prevQueryType', node.queryType);
-      $(querySelect).change(function(data) {
+      $(querySelect).change(function (data) {
         const newQueryType = $(this).val();
         const oldQueryType = $(this).data('prevQueryType');
 
@@ -125,8 +125,8 @@
 
       // Show custom sortBy field
       const sortBySelect = document.getElementById('node-input-sortBy');
-      $(sortBySelect).change(function(data) {
-        if  ($(this).val() == 'other') {
+      $(sortBySelect).change(function (data) {
+        if ($(this).val() == 'other') {
           $(`#div-node-input-sortByOther`).show();
         } else {
           $(`#div-node-input-sortByOther`).hide();
@@ -136,34 +136,33 @@
       // Convert JSON inputs to typedInput
       $('#node-input-body').typedInput({
         type: 'json',
-        types: ['json']
+        types: ['json'],
       });
 
       // Adds an editableList widget for the given parameter `p`
       // of the specified type `t`
       function addEditableTypedList(param, paramType) {
-
         // Creates a function to be called when adding a list item
         // for this parameter & type
-        const getAddItem = function() {
-          return function(container, i, data) {
+        const getAddItem = function () {
+          return function (container, i, data) {
             container.css({
               overflow: 'hidden',
-              whiteSpace: 'nowrap'
+              whiteSpace: 'nowrap',
             });
             const row = $('<div/>').appendTo(container);
 
             // Create the TypedInput element
             const typedInputElem = $('<input/>', {
-                class: `node-input-${param}-value`,
-                type: 'text',
-                width: '100%'
-              })
+              class: `node-input-${param}-value`,
+              type: 'text',
+              width: '100%',
+            })
               .appendTo(row)
               .typedInput({
                 default: paramType,
                 types: [paramType],
-                type: paramType
+                type: paramType,
               })
               .typedInput('show');
 
@@ -191,13 +190,15 @@
           scrollOnAdd: true,
           sortable: true,
           removable: true,
-          addItem: getAddItem()
+          addItem: getAddItem(),
         });
 
         // Populate list with current values
         node[param].forEach((v) => {
-          const value = (paramType == 'json') ? JSON.stringify(v) : v;
-          $(`#node-input-${param}-container`).editableList('addItem', { value });
+          const value = paramType == 'json' ? JSON.stringify(v) : v;
+          $(`#node-input-${param}-container`).editableList('addItem', {
+            value,
+          });
         });
       }
 
@@ -206,14 +207,16 @@
       addEditableTypedList('filters', 'json');
       addEditableTypedList('sortOptions', 'json');
     },
-    oneditsave: function() {
+    oneditsave: function () {
       const node = this;
 
       // Saves values in EditableList to the node config
       function saveListValues(param, paramType) {
-        const entries = $(`#node-input-${param}-container`).editableList('items');
+        const entries = $(`#node-input-${param}-container`).editableList(
+          'items'
+        );
         node[param] = [];
-        entries.each(function(e) {
+        entries.each(function (e) {
           // Iterate through list items in UI
           const entry = $(this);
           const entryValue = entry.find(`.node-input-${param}-value`).val();
@@ -239,11 +242,11 @@
       saveListValues('field', 'str');
       saveListValues('filters', 'json');
       saveListValues('sortOptions', 'json');
-    }
+    },
   });
 </script>
 
-<script type='text/html' data-template-name='tulip-tables'>
+<script type="text/html" data-template-name="tulip-tables">
   <div class='form-row'>
     <label for='node-input-name'><i class='fa fa-tag'></i> Name</label>
     <input type='text' id='node-input-name' placeholder='Name'>
@@ -386,7 +389,7 @@
   </div>
 </script>
 
-<script type='text/html' data-help-name='tulip-tables'>
+<script type="text/html" data-help-name="tulip-tables">
   <p>Reads & manipulates data in Tulip Tables using the Tulip Tables API.</p>
 
   <h3>Inputs</h3>
@@ -467,5 +470,3 @@
     </li>
   </ul>
 </script>
-
-

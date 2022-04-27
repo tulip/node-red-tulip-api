@@ -1,14 +1,13 @@
 module.exports = function (RED) {
   'use strict';
 
-  const request = require('request');
   const https = require('https');
   const http = require('http');
   const httpLibs = {
     http,
     https,
-  }
-  const { v4: uuidv4 } = require('uuid');
+  };
+  const { doHttpRequest } = require('./utils');
 
   // Tulip API node
   function MachineAttrNode(config) {
@@ -20,14 +19,21 @@ module.exports = function (RED) {
     this.deviceInfo = JSON.parse(config.deviceInfo);
     this.payloadSource = config.payloadSource;
     this.payloadType = config.payloadType;
-    this.agent = new httpLibs[apiAuthNode.protocol].Agent({
+
+    this.apiCredentials = apiAuthNode.credentials;
+    this.factoryUrl = getFactoryUrl(
+      apiAuthNode.protocol,
+      apiAuthNode.hostname,
+      apiAuthNode.port
+    );
+    this.protocol = apiAuthNode.protocol;
+
+    // Use http or https depending on the factory protocol
+    const httpLib = httpLibs[this.protocol];
+    this.agent = new httpLib.Agent({
       keepAlive: config.keepAlive,
       keepAliveMsecs: config.keepAliveMsecs,
     });
-
-    // Properties that depend on auth configuration
-    this.apiCredentials = apiAuthNode.credentials;
-    this.factoryUrl = getFactoryUrl(apiAuthNode.protocol, apiAuthNode.hostname, apiAuthNode.port);
 
     const node = this;
 
@@ -67,34 +73,22 @@ module.exports = function (RED) {
 
       // Configure POST request w/auth
       const options = {
-        url: endpoint,
-        body,
         method: 'POST',
-        headers,
-        auth: {
-          user: node.apiCredentials.apiKey,
-          pass: node.apiCredentials.apiSecret,
-        },
+        auth: `${node.apiCredentials.apiKey}:${node.apiCredentials.apiSecret}`,
         agent: node.agent,
+        headers,
       };
 
-      // Send request
-      request(options, function (err, res, body) {
-        if (err) {
-          done(err);
-        } else {
-          if (res.statusCode < 200 || res.statusCode >= 300) {
-            // Request returns error code
-            node.error(new Error(res.body));
-          }
-          // Forward response as node output
-          const msg = {
-            response: res,
-          };
-          send(msg);
-          done();
-        }
-      });
+      // Create, send, handle, and close HTTP request
+      doHttpRequest(
+        httpLib,
+        endpoint,
+        options,
+        body,
+        node.error.bind(node),
+        send,
+        done
+      );
     }
 
     function getFactoryUrl(protocol, hostname, port) {
@@ -123,7 +117,7 @@ module.exports = function (RED) {
       // Content-Type set by this node; overrides user value
       if (headers['Content-Type']) {
         node.warn(
-          `Overriding header 'Content-Type'='${headers['Content-Type']}'; must be 'application/json'`,
+          `Overriding header 'Content-Type'='${headers['Content-Type']}'; must be 'application/json'`
         );
       }
       headers['Content-Type'] = 'application/json';
@@ -145,7 +139,10 @@ module.exports = function (RED) {
         if (typeof paramVal != 'string') {
           // msg parameter is invalid
           const paramType = typeof paramVal;
-          throw new Error(`msg.${param} must be string,` + `${paramVal} is of type ${paramType}`);
+          throw new Error(
+            `msg.${param} must be string,` +
+              `${paramVal} is of type ${paramType}`
+          );
         } else {
           // msg has valid parameter
           return paramVal;
@@ -159,7 +156,12 @@ module.exports = function (RED) {
    * Throws an error if the payload is undefined.
    */
   function getPayload(msg, node) {
-    const payload = getTypedData(msg, node, node.payloadType, node.payloadSource);
+    const payload = getTypedData(
+      msg,
+      node,
+      node.payloadType,
+      node.payloadSource
+    );
     if (payload == undefined) {
       throw new Error('payload not defined');
     }
@@ -188,7 +190,11 @@ module.exports = function (RED) {
         return RED.util.evaluateNodeProperty(dataVal, dataType, node, msg);
       } catch (err) {
         // Add detailed error message
-        node.error(new Error(`Error evaluating node property ${dataVal} of type ${dataType}`));
+        node.error(
+          new Error(
+            `Error evaluating node property ${dataVal} of type ${dataType}`
+          )
+        );
         throw err;
       }
     }

@@ -1,14 +1,14 @@
 module.exports = function (RED) {
   'use strict';
 
-  const request = require('request');
   const http = require('http');
   const https = require('https');
   const httpLibs = {
     http,
     https,
-  }
+  };
   const tulipTables = require('./static/tulip_tables_common');
+  const { doHttpRequest } = require('./utils');
 
   // Tulip API node
   function TablesNode(config) {
@@ -17,11 +17,14 @@ module.exports = function (RED) {
     // Set node properties
     this.name = config.name;
     this.apiAuth = RED.nodes.getNode(config.apiAuth);
-    this.agent = new httpLibs[this.apiAuth.protocol].Agent({
+    this.config = config;
+
+    // Use http or https depending on the factory protocol
+    const httpLib = httpLibs[this.apiAuth.protocol];
+    this.agent = new httpLib.Agent({
       keepAlive: config.keepAlive,
       keepAliveMsecs: config.keepAliveMsecs,
     });
-    this.config = config;
     const node = this;
 
     const queryInfo = tulipTables.TABLE_QUERY_TYPES[config.queryType];
@@ -29,68 +32,87 @@ module.exports = function (RED) {
 
     // Handle node inputs
     node.on('input', function (msg, send, done) {
-      // Get all relevant parameters, overriding config value with msg if set
-      const pathParams = {};
-      const queryParams = {};
+      try {
+        // Get all relevant parameters, overriding config value with msg if set
+        const pathParams = {};
+        const queryParams = {};
 
-      for (const p of queryInfo.pathParams) {
-        pathParams[p] = getParamVal(p, msg);
-      }
-      for (const p of queryInfo.queryParams) {
-        queryParams[p] = getParamVal(p, msg);
-      }
-
-      // Create URL
-      const reqUrl = getApiUrl(
-        node.apiAuth.protocol,
-        node.apiAuth.hostname,
-        node.apiAuth.port,
-        pathParams,
-        queryParams,
-      );
-
-      // Configure request with auth
-      const options = {
-        url: reqUrl,
-        method: queryInfo.method,
-        auth: {
-          user: node.apiAuth.credentials.apiKey,
-          pass: node.apiAuth.credentials.apiSecret,
-        },
-        agent: node.agent,
-      };
-
-      // If a POST request, add the request body
-      if (hasBody) {
-        options.body = JSON.stringify(getParamVal('body', msg));
-        options.headers = getHeaders(msg);
-      } else {
-        options.headers = msg.headers;
-      }
-
-      // Make the request
-      request(options, function (err, res, body) {
-        if (err) {
-          done(err);
-        } else {
-          if (res.statusCode < 200 || res.statusCode >= 300) {
-            // Request returns error code
-            node.error(new Error(`Response status code ${res.statusCode}:` + `${res.body}`));
-          }
-
-          // Request went through, forward response as node output
-          const resBody = res.body == '' ? res.body : JSON.parse(res.body);
-          const msg = {
-            response: res,
-            payload: resBody,
-          };
-          send(msg);
-          done();
+        for (const p of queryInfo.pathParams) {
+          pathParams[p] = getParamVal(p, msg);
         }
-      });
+        for (const p of queryInfo.queryParams) {
+          queryParams[p] = getParamVal(p, msg);
+        }
+
+        // Create URL
+        const reqUrl = getApiUrl(
+          node.apiAuth.protocol,
+          node.apiAuth.hostname,
+          node.apiAuth.port,
+          pathParams,
+          queryParams
+        );
+
+        // Configure request with auth
+        const options = {
+          method: queryInfo.method,
+          auth: `${node.apiAuth.credentials.apiKey}:${node.apiAuth.credentials.apiSecret}`,
+          agent: node.agent,
+          headers: getHeaders(hasBody, msg.headers),
+        };
+
+        let body;
+        if (hasBody) {
+          // Send the message body
+          const rawBody = getParamVal('body', msg);
+          body = JSON.stringify(rawBody);
+        }
+
+        // Create, send, handle, and close HTTP request
+        doHttpRequest(
+          httpLib,
+          reqUrl,
+          options,
+          body,
+          node.error.bind(node),
+          send,
+          done
+        );
+      } catch (err) {
+        // Catch unhandled errors so node-red doesn't crash
+        done(err);
+      }
     });
 
-    function getApiUrl(protocol, hostname, port, pathParams, queryParams) {
+    // Returns the headers object; if a request with a body sets the
+    // content-type to application/json
+    const getHeaders = function (hasBody, headers) {
+      if (!headers) {
+        // Initialize headers object if none exist
+        headers = {};
+      }
+      if (hasBody) {
+        // Set content-type to some form of application/json if not already
+        const oldContentType = headers['content-type'];
+        if (oldContentType && !oldContentType.includes('application/json')) {
+          node.warn(
+            `Overriding header 'content-type'='${oldContentType}'; must be 'application/json'`
+          );
+          headers['content-type'] = 'application/json';
+        } else if (!oldContentType) {
+          headers['content-type'] = 'application/json';
+        }
+      }
+      return headers;
+    };
+
+    const getApiUrl = function (
+      protocol,
+      hostname,
+      port,
+      pathParams,
+      queryParams
+    ) {
       // start with valid protocol & host
       const baseUrl = `${protocol}://${hostname}`;
       const url = new URL(baseUrl);
@@ -106,9 +128,9 @@ module.exports = function (RED) {
       }
 
       return url;
-    }
+    };
 
-    function getParamVal(p, msg) {
+    const getParamVal = function (p, msg) {
       const msgVal = msg[p];
       const configVal = node.config[p];
 
@@ -137,30 +159,13 @@ module.exports = function (RED) {
       } else {
         return undefined;
       }
-    }
-
-    /**
-     * Gets the headers for the Tulip API request. Uses the user-defined msg.headers,
-     * but overrides 'Content-Type' to 'application/json'.
-     */
-    function getHeaders(msg) {
-      // Default header for API request
-      const headers = msg.headers || {};
-
-      // Content-Type set by this node; overrides user value
-      if (headers['Content-Type']) {
-        node.warn(
-          `Overriding header 'Content-Type'='${headers['Content-Type']}'; must be 'application/json'`,
-        );
-      }
-      headers['Content-Type'] = 'application/json';
-      return headers;
-    }
+    };
   }
 
   // Register the node
   RED.nodes.registerType('tulip-tables', TablesNode);
 
+  // Host files in /static/ at /node-red-tulip-edge/js/ so they are accessible by browser code
   RED.httpAdmin.get('/node-red-tulip-edge/js/*', function (req, res) {
     const options = {
       root: __dirname + '/static/',

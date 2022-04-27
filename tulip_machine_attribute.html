@@ -38,10 +38,10 @@
         } else {
           $('#div-node-input-keepAliveMsecs').hide();
         }
-      }
+      };
       updateKeepAlive();
       $('#node-input-keepAlive').change(() => {
-        updateKeepAlive()
+        updateKeepAlive();
       });
 
       // Generate typed input fields
@@ -70,13 +70,16 @@
     <input id="node-input-apiAuth" />
   </div>
   <div class="form-row">
-    <label for="node-input-deviceInfo"><i class="fa fa-clipboard"></i> Device Info</label>
+    <label for="node-input-deviceInfo"
+      ><i class="fa fa-clipboard"></i> Device Info</label
+    >
     <input type="text" id="node-input-deviceInfo" />
   </div>
   <div class="form-tips">
-    <b>Tip:</b> This field can be copy-pasted from your Tulip factory instance. Navigate to Shop
-    Floor > Machines, select your machine from the Machine Library, and click the clipboard icon
-    next to the target Machine Attribute to copy-paste its device info.
+    <b>Tip:</b> This field can be copy-pasted from your Tulip factory instance.
+    Navigate to Shop Floor > Machines, select your machine from the Machine
+    Library, and click the clipboard icon next to the target Machine Attribute
+    to copy-paste its device info.
   </div>
 
   <hr />
@@ -84,20 +87,29 @@
   <div class="form-row">
     <h4>Advanced</h4>
   </div>
-  <div class='form-row'>
-    <label for='node-input-keepAlive'> HTTP Options</label>
+  <div class="form-row">
+    <label for="node-input-keepAlive"> HTTP Options</label>
     <input
-      type='checkbox'
-      id='node-input-keepAlive'
-      autocomplete='off'
-      style='margin-left:10px; vertical-align:top; width:auto'
+      type="checkbox"
+      id="node-input-keepAlive"
+      autocomplete="off"
+      style="margin-left:10px; vertical-align:top; width:auto"
     />
-    <label for='node-input-keepAlive' style='width:auto'>Enable Connection Keep-Alive</label>
+    <label for="node-input-keepAlive" style="width:auto"
+      >Enable Connection Keep-Alive</label
+    >
   </div>
-  <div class='form-row' id='div-node-input-keepAliveMsecs' hidden>
+  <div class="form-row" id="div-node-input-keepAliveMsecs" hidden>
     <label for="node-input-keepAliveMsecs">&nbsp;</label>
     <span style="width:auto">Keep-Alive Initial Delay (ms)</span>
-    <input type='number' min=0 step=1 id='node-input-keepAliveMsecs' value=10000 style="width:auto">
+    <input
+      type="number"
+      min="0"
+      step="1"
+      id="node-input-keepAliveMsecs"
+      value="10000"
+      style="width:auto"
+    />
   </div>
   <div class="form-row">
     <label for="node-input-payloadSource"> Attribute Source</label>
@@ -153,8 +165,10 @@
   <h3>Overview</h3>
   <p>
     Each <code>tulip-machine-attribute</code> node is configured to send data to a Tulip Machine API endpoint.
+    This endpoint is unique to a single machine attribute for a single machine on your Tulip factory instance.
     To send data to a given factory instance, you must configure a <code>tulip-api-auth</code> nodde with authentication details.
     The bot used for authentication must have <code>attributes:write</code> permissions.
+
     This authentication node can be shared between <code>tulip-machine-attribute</code> nodes.
   </p>
 
@@ -176,21 +190,22 @@
   </p>
 
   <p>
-    For basic operation, only <code>msg.payload</code> needs to be passed into the node,
-    and the <code>deviceInfo</code> can be copy-pasted into "Device Info" from the Machine page on your factory instance.
+    For basic operation, only <code>msg.payload</code> needs to be passed into the node, and the <code>deviceInfo</code> can be
+    copy-pasted into "Device Info" from the Machine page on your factory instance.
   </p>
 
   <h3>Advanced Operation</h3>
   <p>
     For more advanced operation, you can specify the attribute value to come from a source other than <code>msg.payload</code>.
-    Supported sources are: properties of <code>msg</code>, <code>flow</code>, or <code>global</code>; strings; numbers;
-    JSONata expressions; environment variables.
+    Supported sources are: properties of <code>msg</code>, <code>flow</code>, or <code>global</code>; strings; numbers; JSONata
+    expressions; environment variables.
   </p>
   <p>
-    You can also override the properties in the "Device Info" field with <code>msg</code> properties to configure the node to send to different endpoints.
-    Specifically, <code>msg.attributeId</code> will override <code>deviceInfo.attributeId</code>, and <code>msg.machineId</code> will override <code>deviceInfo.machineId</code>.
-    If you override either property with every <code>msg</code>, it is not needed in the "Device Info" field.
-    For example, if every <code>msg</code> has both <code>machineId</code> and <code>attribute</code> set, you can leave "Device Info" as <code>{}</code>.
+    You can also override the properties in the "Device Info" field with <code>msg</code> properties to configure the node to send
+    to different endpoints. Specifically, <code>msg.attributeId</code> will override <code>deviceInfo.attributeId</code>, and
+    <code>msg.machineId</code> will override <code>deviceInfo.machineId</code>. If you override either property with every
+    <code>msg</code>, it is not needed in the "Device Info" field. For example, if every <code>msg</code> has both <code>machineId</code>
+    and <code>attribute</code> set, you can leave "Device Info" as <code>{}</code>.
   </p>
   <p>
     Lastly, you can configure the HTTP agent to use keep-alive by checking "Enable Connection Keep-Alive" (default=<code>true</code>),
