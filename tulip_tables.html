@@ -41,6 +41,7 @@
       includeDeleted: { value: false },
       includeTotalCount: { value: false },
       allowRecordsInUse: { value: false },
+      includeRequestInResult: {value: false },
 
       // Arrays
       field: { value: [] },
@@ -284,9 +285,14 @@
       style='margin-left:10px; vertical-align:top; width:auto'>
     <label for='node-input-includeDeleted' style='width:auto'>Include deleted tables</label>
   </div>
+  <div class='form-row' id='div-node-input-includeRequestInResult'>
+    <input type='checkbox' id='node-input-includeRequestInResult' autocomplete='off'
+      style='margin-left:10px; vertical-align:top; width:auto'>
+    <label for='node-input-includeTotalCount' style='width:auto'>Include Request in Result</label>
+  </div>
   <div class='form-row' id='div-node-input-includeTotalCount' hidden>
     <input type='checkbox' id='node-input-includeTotalCount' autocomplete='off'
-      style='margin-left:10px; vertical-align:top; width:auto'>
+           style='margin-left:10px; vertical-align:top; width:auto'>
     <label for='node-input-includeTotalCount' style='width:auto'>Include total count</label>
   </div>
   <div class='form-row' id='div-node-input-allowRecordsInUse' hidden>

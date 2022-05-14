@@ -90,7 +90,7 @@ Each `tulip-tables` node is configured to send data to a single Tulip Tables API
   - *Table ID*: The id of a Tulip Table.
   - *Filters*: An optional array of filter expressions to filter the Table records by. Each filter is an object specifying the `field` (name of a table column), `functionType` (comparison function), and `arg` (the value to compare to).
   - *Filter Aggregator*: How the filters in the filter parameter are combined. `all` means that every filter must match a record in order for the record to be included. `any` means at least one filter must match a record in order for the record to be included.
-
+- **Include Request in Result**: If enabled, causes the output msg to include an element _msg.request_ containing  the path and query parameters of the original request.  This can be used, for example, to determine the originating tableId and trigger a followup request.
 
 ### Inputs
 

@@ -1,6 +1,6 @@
 {
   "name": "@tulip/node-red-tulip-api",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Node-RED nodes for sending data to the Tulip API",
   "main": "index.js",
   "node-red": {
@@ -30,5 +30,7 @@
     "url": "https://github.com/tulip/node-red-tulip-api/issues"
   },
   "homepage": "https://github.com/tulip/node-red-tulip-api#readme",
-  "dependencies": {}
+  "dependencies": {
+    "request": "^2.87.0"
+  }
 }
