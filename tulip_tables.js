@@ -79,7 +79,9 @@ module.exports = function (RED) {
               if (node.config.includeRequestInResult) {
                 resultMsg.request = {
                   pathParams: pathParams,
-                  queryParams: queryParams
+                  queryParams: queryParams,
+                  body: getParamVal('body', msg),
+                  payload: msg.payload
                 };
               }
               node.send(resultMsg);
