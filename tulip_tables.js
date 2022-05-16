@@ -8,7 +8,7 @@ module.exports = function (RED) {
     https,
   };
   const tulipTables = require('./static/tulip_tables_common');
-  const { doHttpRequest } = require('./utils');
+  const { getParamVal, doHttpRequest } = require('./utils');
 
   // Tulip API node
   function TablesNode(config) {
@@ -38,10 +38,10 @@ module.exports = function (RED) {
         const queryParams = {};
 
         for (const p of queryInfo.pathParams) {
-          pathParams[p] = getParamVal(p, msg);
+          pathParams[p] = getParamVal(node, p, msg);
         }
         for (const p of queryInfo.queryParams) {
-          queryParams[p] = getParamVal(p, msg);
+          queryParams[p] = getParamVal(node, p, msg);
         }
 
         // Create URL
@@ -64,7 +64,7 @@ module.exports = function (RED) {
         let body;
         if (hasBody) {
           // Send the message body
-          const rawBody = getParamVal('body', msg);
+          const rawBody = getParamVal(node, 'body', msg);
           body = JSON.stringify(rawBody);
         }
 
@@ -80,7 +80,7 @@ module.exports = function (RED) {
                 resultMsg.request = {
                   pathParams: pathParams,
                   queryParams: queryParams,
-                  body: getParamVal('body', msg),
+                  body: getParamVal(node, 'body', msg),
                   payload: msg.payload
                 };
               }
@@ -138,37 +138,6 @@ module.exports = function (RED) {
       }
 
       return url;
-    };
-
-    const getParamVal = function (p, msg) {
-      const msgVal = msg[p];
-      const configVal = node.config[p];
-
-      // Take parameter from msg
-      if (msgVal != undefined) {
-        if (Array.isArray(msgVal)) {
-          // encode array as string
-          return JSON.stringify(msgVal);
-        } else {
-          return msgVal;
-        }
-        // Take parameter from config
-      } else if (configVal != undefined && configVal != null) {
-        if (p == 'sortBy' && configVal == 'other') {
-          // sortBy is special case, if 'other' get the value
-          return node.config['sortByFieldId'];
-        } else if (Array.isArray(configVal)) {
-          // encode array as string
-          return JSON.stringify(configVal);
-        } else if (p == 'body') {
-          // Convert JSON string to object
-          return JSON.parse(configVal);
-        } else {
-          return configVal;
-        }
-      } else {
-        return undefined;
-      }
     };
   }
 

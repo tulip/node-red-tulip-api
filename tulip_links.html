@@ -1,0 +1,61 @@
+
+
+<!-- declaration of the node -->
+<script type="text/javascript">
+    RED.nodes.registerType('tulip-links',{
+        category: 'Tulip',
+        color: '#65CCB8',
+
+        defaults: {
+            apiAuth: {
+                value: '',
+                type: 'tulip-api-auth',
+                required: true,
+            },
+            linkId: {value: ""},
+            queryType: {value:"link"},
+            name: {value:""}
+        },
+        inputs:1,
+        outputs:1,
+        icon: 'tulip.svg',
+        label: function() {
+            return this.name||"tulip-links";
+        }
+    });
+</script>
+
+
+<!-- node configuration template -->
+<script type="text/html" data-template-name="tulip-links">
+
+    <div class='form-row'>
+        <label for='node-input-apiAuth'><i class='fa fa-user-circle'></i> Tulip API Authentication</label>
+        <input id='node-input-apiAuth'>
+    </div>
+
+    <div class="form-row">
+        <label for="node-input-linkId"><i class="fa fa-tag"></i> Link ID</label>
+        <input type="text" id="node-input-linkId" placeholder="">
+    </div>
+
+    <div class='form-row'>
+        <label for='node-input-queryType'></i> Operation Type</label>
+        <select id='node-input-queryType' style='width:70%'>
+            <option value="link">Link Records</option>
+            <option value="unlink">Unlink Records</option>
+            <option value="info">Fetch Link Information</option>
+        </select>
+    </div>
+
+    <div class="form-row">
+        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-input-name" placeholder="Name">
+    </div>
+
+</script>
+
+<!-- node help -->
+<script type="text/html" data-help-name="tulip-links">
+<div>This is the help</div>
+</script>

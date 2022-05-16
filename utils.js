@@ -56,6 +56,41 @@ const doHttpRequest = function (
   req.end();
 };
 
+
+
+const getParamVal = function (node, propName, msg) {
+  const msgVal = msg[propName];
+  const configVal = node.config[propName];
+
+  // Take parameter from msg
+  if (msgVal !== undefined) {
+    if (Array.isArray(msgVal)) {
+      // encode array as string
+      return JSON.stringify(msgVal);
+    } else {
+      return msgVal;
+    }
+    // Take parameter from config
+  } else if (configVal != undefined && configVal != null) {
+    if (propName === 'sortBy' && configVal === 'other') {
+      // sortBy is special case, if 'other' get the value
+      return node.config['sortByFieldId'];
+    } else if (Array.isArray(configVal)) {
+      // encode array as string
+      return JSON.stringify(configVal);
+    } else if (propName == 'body') {
+      // Convert JSON string to object
+      return JSON.parse(configVal);
+    } else {
+      return configVal;
+    }
+  } else {
+    return undefined;
+  }
+}
+
+
+
 module.exports = {
-  doHttpRequest,
+  doHttpRequest, getParamVal
 };
