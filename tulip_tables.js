@@ -28,7 +28,7 @@ module.exports = function (RED) {
     const node = this;
 
     const queryInfo = tulipTables.TABLE_QUERY_TYPES[config.queryType];
-    const hasBody = queryInfo.method == 'POST' || queryInfo.method == 'PUT';
+    const hasBody = queryInfo.method == 'POST' || queryInfo.method == 'PUT' || queryInfo.method == 'PATCH';
 
     // Handle node inputs
     node.on('input', function (msg, send, done) {
