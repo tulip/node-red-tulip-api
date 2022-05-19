@@ -74,8 +74,18 @@ module.exports = function (RED) {
           reqUrl,
           options,
           body,
-          node.error.bind(node),
-          send,
+            node.error.bind(node),
+            (resultMsg) => {
+              if (node.config.includeRequestInResult) {
+                resultMsg.request = {
+                  pathParams: pathParams,
+                  queryParams: queryParams,
+                  body: getParamVal('body', msg),
+                  payload: msg.payload
+                };
+              }
+              node.send(resultMsg);
+          },
           done
         );
       } catch (err) {
