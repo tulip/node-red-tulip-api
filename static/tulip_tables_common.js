@@ -243,7 +243,72 @@
       pathConstructor: function(p) {
         return `/tables/${p.tableId}/aggregation/${p.aggregationId}`;
       }
-    }
+    },
+    {
+      text: 'Increment or decrement a field in a Tulip Table record',
+      method: 'PATCH',
+      pathParams: [
+        'tableId',
+        'recordId'
+      ],
+      queryParams: [],
+      pathConstructor: function(p) {
+        return `/tables/${p.tableId}/records/${p.recordId}/increment`;
+      }
+    },
+    {
+      text: 'Link records',
+      method: 'PUT',
+      pathParams: [
+        'linkId'
+      ],
+      queryParams: [],
+      pathConstructor: function(p) {
+        return `/tableLinks/${p.linkId}/link`;
+      }
+    },
+    {
+      text: 'Unlink records',
+      method: 'PUT',
+      pathParams: [
+        'linkId'
+      ],
+      queryParams: [],
+      pathConstructor: function(p) {
+        return `/tableLinks/${p.linkId}/link`;
+      }
+    },
+    {
+      text: 'Create a table link relationship',
+      method: 'POST',
+      pathParams: [],
+      queryParams: [],
+      pathConstructor: function(p) {
+        return `/tableLinks`;
+      }
+    },
+    {
+      text: 'Fetch link information',
+      method: 'GET',
+      pathParams: [
+        'linkId'
+      ],
+      queryParams: [],
+      pathConstructor: function(p) {
+        return `/tableLinks/${p.linkId}`;
+      }
+    },
+    {
+      text: 'Update the column labels for link',
+      method: 'PUT',
+      pathParams: [
+        'linkId'
+      ],
+      queryParams: [],
+      pathConstructor: function(p) {
+        return `/tableLinks/${p.linkId}`;
+      }
+    },
   ];
 
   exports.FUNCTION_TYPES = [
