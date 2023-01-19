@@ -1,13 +1,72 @@
 module.exports = function (RED) {
   'use strict';
 
-  const https = require('https');
-  const http = require('http');
-  const httpLibs = {
-    http,
-    https,
+  const {
+    doHttpRequest,
+    getHttpAgent,
+    getHttpLib,
+    getMachineAttributeEndpoint,
+  } = require('./utils');
+
+  /**
+   * Validates a list of attributes to write to the Machine API. Is valid if it is a list of
+   * { attributeId: string, machineId: string, value: any }
+   * @param {Object[]} payload - list of { machineId, attributeId, value } to validate
+   * @returns {Object} result - the validation result
+   * @returns {boolean} result.isValid - whether the input list is valid
+   * @returns {string|null} result.errorMessage - error message if not valid, otherwise null
+   */
+  const validateBatchedPayload = function (payload) {
+    try {
+      // Wrap in try-catch in case there is an unexpected validation error
+      if (!Array.isArray(payload)) {
+        return {
+          isValid: false,
+          errorMessage: `invalid payload: expected array, got: ${typeof payload}`,
+        };
+      } else {
+        for (const attribute of payload) {
+          const attributeId = attribute.attributeId;
+          const machineId = attribute.machineId;
+          const value = attribute.value;
+
+          // validate attributeId exists and is string
+          if (typeof attributeId !== 'string') {
+            return {
+              isValid: false,
+              errorMessage:
+                `attributeId must be a string, got: ` +
+                `<${attributeId}> of type <${typeof attributeId}>`,
+            };
+          }
+          // validate machineId exists and is string
+          if (typeof machineId !== 'string') {
+            return {
+              isValid: false,
+              errorMessage: `machineId must be a string, got: ${machineId}`,
+            };
+          }
+          // validate value is not null|undefined
+          if (value === undefined || value === null) {
+            return {
+              isValid: false,
+              errorMessage: `value cannot be null or undefined, got: ${value}`,
+            };
+          }
+        }
+      }
+    } catch (err) {
+      return {
+        isValid: false,
+        errorMessage: `invalid payload: ${JSON.stringify(err, null, 2)}`,
+      };
+    }
+
+    return {
+      isValid: true,
+      errorMessage: null,
+    };
   };
-  const { doHttpRequest } = require('./utils');
 
   // Tulip API node
   function MachineAttrNode(config) {
@@ -20,43 +79,75 @@ module.exports = function (RED) {
     this.payloadSource = config.payloadSource;
     this.payloadType = config.payloadType;
 
+    // Legacy nodes only allowed writing one attribute, so if property is missing default to true
+    this.singleAttribute = 'singleAttribute' in config ? config.singleAttribute : true;
+
+    // Legacy nodes did not allow retaining msg props, so if property is missing default to false
+    this.retainMsgProps = 'retainMsgProps' in config ? config.retainMsgProps : false;
+
     this.apiCredentials = apiAuthNode.credentials;
-    this.factoryUrl = getFactoryUrl(
+    const factoryUrl = getFactoryUrl(
       apiAuthNode.protocol,
       apiAuthNode.hostname,
-      apiAuthNode.port
+      apiAuthNode.port,
     );
-    this.protocol = apiAuthNode.protocol;
-
-    // Use http or https depending on the factory protocol
-    const httpLib = httpLibs[this.protocol];
-    this.agent = new httpLib.Agent({
-      keepAlive: config.keepAlive,
-      keepAliveMsecs: config.keepAliveMsecs,
-    });
+    this.endpoint = getMachineAttributeEndpoint(factoryUrl);
+    this.httpLib = getHttpLib(apiAuthNode.protocol);
 
     const node = this;
+
+    // Use http or https depending on the factory protocol
+    const agent = getHttpAgent(node.httpLib, config.keepAlive, config.keepAliveMsecs);
+
+    // Configure HTTP POST request options w/auth
+    const defaultRequestOpts = {
+      method: 'POST',
+      auth: `${node.apiCredentials.apiKey}:${node.apiCredentials.apiSecret}`,
+      agent,
+    };
+
 
     // Handle node inputs
     this.on('input', function (msg, send, done) {
       try {
-        // Get the payload from user-defined input
-        const payload = getPayload(msg, node);
         const headers = getHeaders(msg, node);
 
-        // Use either config or override with msg value
-        const machineId = getDeviceInfo(msg, node.deviceInfo, 'machineId');
-        const attributeId = getDeviceInfo(msg, node.deviceInfo, 'attributeId');
+        // Decide whether to pass the input msg params to the output msg
+        const sendMsg = node.retainMsgProps
+          ? (newMsg) => {
+              send({
+                ...msg,
+                ...newMsg,
+              });
+            }
+          : send;
 
-        // Everything is ok, send the payload
-        sendPayload(payload, headers, machineId, attributeId, send, done);
+        if (node.singleAttribute) {
+          // Get the payload from user-defined input
+          const payload = getPayloadFromSource(msg, node);
+
+          // Use either config or override with msg value
+          const machineId = getDeviceInfo(msg, node.deviceInfo, 'machineId');
+          const attributeId = getDeviceInfo(msg, node.deviceInfo, 'attributeId');
+
+          // Everything is ok, send the payload
+          sendPayloadForAttribute(payload, headers, machineId, attributeId, sendMsg, done);
+        } else {
+          const { isValid, errorMessage } = validateBatchedPayload(msg.payload);
+          if (!isValid) {
+            done(new Error(errorMessage));
+            return;
+          }
+
+          sendPayloadAsAttributes(msg.payload, headers, sendMsg, done);
+        }
       } catch (e) {
         done(e);
       }
     });
 
-    // Sends payload to Tulip Machine API
-    function sendPayload(payload, headers, machineId, attributeId, send, done) {
+    // Sends payload to Tulip Machine API for attribute given by { machineId, attributeId }
+    function sendPayloadForAttribute(payload, headers, machineId, attributeId, send, done) {
       const bodyObj = {
         attributes: [
           {
@@ -68,27 +159,25 @@ module.exports = function (RED) {
       };
       const body = JSON.stringify(bodyObj);
 
-      // Get machine attribute endpoint for the configured factory instance
-      const endpoint = getMachineAttributeEndpoint(node.factoryUrl);
-
-      // Configure POST request w/auth
-      const options = {
-        method: 'POST',
-        auth: `${node.apiCredentials.apiKey}:${node.apiCredentials.apiSecret}`,
-        agent: node.agent,
-        headers,
-      };
+      const options = defaultRequestOpts;
+      options.headers = headers;
 
       // Create, send, handle, and close HTTP request
-      doHttpRequest(
-        httpLib,
-        endpoint,
-        options,
-        body,
-        node.error.bind(node),
-        send,
-        done
-      );
+      doHttpRequest(node.httpLib, node.endpoint, options, body, node.error.bind(node), send, done);
+    }
+
+    // Sends payload to Tulip Machine API as the request `attributes` property
+    function sendPayloadAsAttributes(payload, headers, send, done) {
+      const bodyObj = {
+        attributes: payload,
+      };
+      const body = JSON.stringify(bodyObj);
+
+      const options = defaultRequestOpts;
+      options.headers = headers;
+
+      // Create, send, handle, and close HTTP request
+      doHttpRequest(node.httpLib, node.endpoint, options, body, node.error.bind(node), send, done);
     }
 
     function getFactoryUrl(protocol, hostname, port) {
@@ -98,11 +187,6 @@ module.exports = function (RED) {
 
       // build the url
       url.port = port;
-      return url;
-    }
-
-    function getMachineAttributeEndpoint(url) {
-      url.pathname = '/api/v3/attributes/report';
       return url;
     }
 
@@ -155,7 +239,7 @@ module.exports = function (RED) {
    * Gets the payload from the configured payload source.
    * Throws an error if the payload is undefined.
    */
-  function getPayload(msg, node) {
+  function getPayloadFromSource(msg, node) {
     const payload = getTypedData(
       msg,
       node,
