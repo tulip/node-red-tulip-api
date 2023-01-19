@@ -43,6 +43,7 @@ Before using a `tulip-machine-attribute` node, make sure that you have completed
 
 - **Name**: Display name for the node instance in the editor
 - **Tulip Api Authentication**: A configuration node with authentication details for an API bot on your Tulip account. The API bot must have `attributes:write` permissions. See more details in the [Tulip API Auth Node](#tulip-api-auth-node) section.
+- **Attribute Config**: Select whether to write to a single attribute, or if unchecked, then you can instead performed batched writes by setting `msg.payload` to a list of attributes, each in the format `{ attributeId, machineId, value }`.
 - **Device Info**: Defines which machine attribute endpoint this node will send data to. You can copy-paste this field from the target machine attribute on your factory instance by following these steps:
   - Navigate to `your-factory-instance.tulip.co`
   - Click on **Shop Floor** > **Machines**
@@ -51,6 +52,7 @@ Before using a `tulip-machine-attribute` node, make sure that you have completed
 - **HTTP Options**:
   - **Enable Connection Keep-Alive**: Whether to set `keepAlive=true` for the http agent. Note that this sets the keep-alive behaviour of the HTTP agent, which is different than setting the 'Connection': 'Keep-Alive' HTTP header.
   - **Keep-Alive Initial Delay (ms)**: Sets the `keepAliveMsecs` of the http agent. Only relevant is keep-alive is enabled.
+- **Output**: Whether to retain all properties of the input message in the output message or clear them. If retaining input properties, input message properties that conflict with a property set by this node (ex: `msg.response`) then the input message property will be overwritten.
 - **Attribute Source**: What source to use for the attribute value. For example, if set to `msg.payload`, the attribute will be sent the value of `msg.payload`; if set to a hardcoded string, the attribute will be sent the hardcoded string, etc. Supported sources are:
   - properties of `msg`, `flows`, or `global`
   - strings
@@ -69,6 +71,7 @@ Before using a `tulip-machine-attribute` node, make sure that you have completed
 ### Outputs
 
 - `msg.response`: The HTTP response from the API request.
+- `msg.payload`: The parsed response body.
 
 
 ## Tulip Tables Node
@@ -86,6 +89,7 @@ Each `tulip-tables` node is configured to send data to a single Tulip Tables API
 - **HTTP Options**:
   - **Enable Connection Keep-Alive**: Whether to set `keepAlive=true` for the http agent. Note that this sets the keep-alive behaviour of the HTTP agent, which is different than setting the 'Connection': 'Keep-Alive' HTTP header.
   - **Keep-Alive Initial Delay (ms)**: Sets the `keepAliveMsecs` of the http agent. Only relevant is keep-alive is enabled.
+- **Output**: Whether to retain all properties of the input message in the output message or clear them. If retaining input properties, input message properties that conflict with a property set by this node (ex: `msg.response`) then the input message property will be overwritten.
 - **Query Type**: This field determines which endpoint to send the request to. All other configuration is dependent on the query type. For example, using the endpoint "Count records", the following configuration values will appear (from the API docs):
   - *Table ID*: The id of a Tulip Table.
   - *Filters*: An optional array of filter expressions to filter the Table records by. Each filter is an object specifying the `field` (name of a table column), `functionType` (comparison function), and `arg` (the value to compare to).
@@ -101,7 +105,7 @@ Each `tulip-tables` node is configured to send data to a single Tulip Tables API
 ### Outputs
 
 - `msg.response`: The HTTP response from the API request.
-- `msg.payload`: The parsed response body
+- `msg.payload`: The parsed response body.
 
 
 ## Tulip API Auth Node
