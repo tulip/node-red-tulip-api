@@ -14,6 +14,8 @@
       },
       keepAlive: { value: true },
       keepAliveMsecs: { value: 10000 },
+      retainMsgProps: { value: true },
+      singleAttribute: { value: true },
       deviceInfo: {
         value: '{"attributeId":"","deviceId":""}',
         required: true,
@@ -44,6 +46,49 @@
         updateKeepAlive();
       });
 
+      const node = this;
+
+      // Add retainMsgProps as a property to transition legacy nodes. Set to false since
+      // previously msg props were not retained.
+      if (!('retainMsgProps' in node)) {
+        node.retainMsgProps = false;
+      }
+
+      // Add singleAttribute as a property to transition legacy nodes. Set to true since
+      // previously only single tag was supported.
+      if (node.singleAttribute === undefined || node.singleAttribute === null) {
+        node.singleAttribute = true;
+      }
+
+      // Set initial state of singleAttribute option & tag selection
+      if (node.singleAttribute) {
+        $('.single-attribute-wrapper').show();
+        $('#node-input-singleAttribute').prop('checked', true);
+      } else {
+        $('.single-attribute-wrapper').hide();
+        $('#node-input-singleAttribute').prop('checked', false);
+      }
+
+      // Show option for selecting tag if singleAttribute is true
+      $('#node-input-singleAttribute').change(() => {
+        let singleAttribute = $('#node-input-singleAttribute').is(':checked');
+        if (singleAttribute) {
+          $('.single-attribute-wrapper').show();
+        } else {
+          $('.single-attribute-wrapper').hide();
+        }
+      });
+
+      // Show attribute help text on click
+      $('#attribute-config-info').click(() => {
+        const isHidden = $('#attribute-config-help').is(':hidden');
+        if (isHidden) {
+          $('#attribute-config-help').show();
+        } else {
+          $('#attribute-config-help').hide();
+        }
+      });
+
       // Generate typed input fields
       $('#node-input-payloadSource').typedInput({
         default: 'msg',
@@ -70,12 +115,47 @@
     <input id="node-input-apiAuth" />
   </div>
   <div class="form-row">
-    <label for="node-input-deviceInfo"
-      ><i class="fa fa-clipboard"></i> Device Info</label
-    >
-    <input type="text" id="node-input-deviceInfo" />
+    <label>
+      Attribute<br>Config
+      <i id="attribute-config-info" class="fa fa-info-circle"></i>
+    </label>
+    <input
+      id="node-input-singleAttribute"
+      type="checkbox"
+      autocomplete="off"
+      style="margin-left:10px; vertical-align:top; width:auto"
+    />
+    <label for="node-input-singleAttribute" style="width:auto; vertical-align:top">
+      Single attribute
+    </label>
   </div>
-  <div class="form-tips">
+  <div id="attribute-config-help" class="form-tips" style="margin:12px" hidden>
+    <p>
+      If checked, specify a single machine attribute to send data to (identified by
+      <code>machineId</code> and <code>attributeId</code>). Write values to that attribute
+      through the configured attribute source.
+    </p>
+    <p>
+      If not checked, you can dynamically pass as <code>msg.payload</code> a list of attributes
+      and values to write.
+
+      For example, set <code>msg.payload</code> to
+<pre><code>[
+  {
+    "machineId": "{machineId}",
+    "attributeId": "{attributeId}",
+    "value": {value}
+  }
+]</code></pre>
+      to write the string <code>"val1"</code> to the string-type attribute
+      with id <code>attributeId</code> for machine with id <code>machineId</code>.
+    </p>
+  </div>
+  <div class="form-row single-attribute-wrapper">
+    <label for="node-input-deviceInfo"><i class="fa fa-clipboard"></i> Device Info</label>
+    <input type="text" id="node-input-deviceInfo" style="width:70%"/>
+  </div>
+  <div class="form-tips single-attribute-wrapper">
     <b>Tip:</b> This field can be copy-pasted from your Tulip factory instance.
     Navigate to Shop Floor > Machines, select your machine from the Machine
     Library, and click the clipboard icon next to the target Machine Attribute
@@ -87,6 +167,7 @@
   <div class="form-row">
     <h4>Advanced</h4>
   </div>
+  <br>
   <div class="form-row">
     <label for="node-input-keepAlive"> HTTP Options</label>
     <input
@@ -95,9 +176,9 @@
       autocomplete="off"
       style="margin-left:10px; vertical-align:top; width:auto"
     />
-    <label for="node-input-keepAlive" style="width:auto"
-      >Enable Connection Keep-Alive</label
-    >
+    <label for="node-input-keepAlive" style="width:auto">
+      Enable Connection Keep-Alive
+    </label>
   </div>
   <div class="form-row" id="div-node-input-keepAliveMsecs" hidden>
     <label for="node-input-keepAliveMsecs">&nbsp;</label>
@@ -111,9 +192,21 @@
       style="width:auto"
     />
   </div>
+  <br>
   <div class="form-row">
+    <label for="node-input-retainMsgProps"> Output</label>
+    <input
+      type="checkbox"
+      id="node-input-retainMsgProps"
+      autocomplete="off"
+      style="margin-left:10px; vertical-align:top; width:auto"
+    />
+    <label for="node-input-retainMsgProps" style="width:auto">Retain Input Message Properties</label>
+  </div>
+  <br>
+  <div class="form-row single-attribute-wrapper">
     <label for="node-input-payloadSource"> Attribute Source</label>
-    <input type="text" id="node-input-payloadSource" />
+    <input type="text" id="node-input-payloadSource" style="width:70%" />
     <input type="hidden" id="node-input-payloadType" />
   </div>
 </script>
@@ -121,53 +214,74 @@
 <script type="text/html" data-help-name="tulip-machine-attribute">
   <p>Sends data to machine attribute endpoints using the Tulip Machine API.</p>
 
-  <h3>Inputs</h3>
-  <dl class='message-properties'>
+  <h3>Inputs (single attribute)</h3>
+  <dl class="message-properties">
     <dt>
       payload
-      <span class='property-type'>string | boolean | integer | float</span>
+      <span class="property-type">string | boolean | integer | float</span>
     </dt>
     <dd>
       The value of the attribute to send. Should match the type of the machine attribute endpoint.
     </dd>
-    <dt class='optional'>
+    <dt class="optional">
       machineId
-      <span class='property-type'>string</span>
+      <span class="property-type">string</span>
     </dt>
     <dd>
       Value to override the <code>machineId</code> set in "Device Info".
     </dd>
-    <dt class='optional'>
+    <dt class="optional">
       attributeId
-      <span class='property-type'>string</span>
+      <span class="property-type">string</span>
     </dt>
     <dd>
       Value to override the <code>attributeId</code> set in "Device Info".
     </dd>
-    <dt class='optional'>
+    <dt class="optional">
       headers
-      <span class='property-type'>JSON</span>
+      <span class="property-type">JSON</span>
     </dt>
     <dd>
-      HTTP headers to include in the request. If a POST or PUT request, the header 'Content-Type'
-      will be set to 'application/json' and will override <code>msg.headers['Content-Type']</code>.
+      HTTP headers to include in the request. If a POST or PUT request, the header "Content-Type"
+      will be set to "application/json" and will override <code>msg.headers["Content-Type"]</code>.
+    </dd>
+  </dl>
+
+  <h3>Inputs (not single attribute)</h3>
+  <dl class="message-properties">
+    <dt>
+      payload
+      <span class="property-type">Object[]</span>
+    </dt>
+    <dd>
+      A list of { machineId, attributeId, value } objects to write in one batched Machine API request.
+    </dd>
+    <dt class="optional">
+      headers
+      <span class="property-type">JSON</span>
+    </dt>
+    <dd>
+      HTTP headers to include in the request. If a POST or PUT request, the header "Content-Type"
+      will be set to "application/json" and will override <code>msg.headers["Content-Type"]</code>.
     </dd>
   </dl>
 
   <h3>Outputs</h3>
-  <ol class='node-ports'>
-    <dl class='message-properties'>
-      <dt>response <span class='property-type'>JSON</span></dt>
-      <dd>the HTTP response from the API request</dd>
+  <ol class="node-ports">
+    <dl class="message-properties">
+      <dt>response <span class="property-type">JSON</span></dt>
+      <dd>The HTTP response object from the API request.</dd>
+      <dt>payload</dt>
+      <dd>The parsed response body.</dd>
     </dl>
   </ol>
 
   <h3>Overview</h3>
   <p>
-    Each <code>tulip-machine-attribute</code> node is configured to send data to a Tulip Machine API endpoint.
-    This endpoint is unique to a single machine attribute for a single machine on your Tulip factory instance.
-    To send data to a given factory instance, you must configure a <code>tulip-api-auth</code> nodde with authentication details.
-    The bot used for authentication must have <code>attributes:write</code> permissions.
+    Each <code>tulip-machine-attribute</code> node is configured to send data to the Tulip Machine API.
+    If "Single attribute" is checked, then the node will send data to a a single machine attribute
+    for a single machine on your Tulip factory instance. If not checked, then the node can send data to
+    a dynamically-selected attribute or list of attributes.
 
     This authentication node can be shared between <code>tulip-machine-attribute</code> nodes.
   </p>
@@ -177,15 +291,15 @@
     For every <code>msg</code>, the node will by default send an POST request to
     <a>https://[your-factory-url]/api/v3/attributes/report</a> with request body:
 
-  <pre><code>{
-    "attributes": [
-      {
-        "machineId": deviceInfo.machineId,
-        "attributeId": deviceInfo.attributeId,
-        "value": msg.payload
-      }
-    ]
-  }</code></pre>
+<pre><code>{
+  "attributes": [
+    {
+      "machineId": deviceInfo.machineId,
+      "attributeId": deviceInfo.attributeId,
+      "value": msg.payload
+    }
+  ]
+}</code></pre>
 
   </p>
 
@@ -201,6 +315,11 @@
     expressions; environment variables.
   </p>
   <p>
+    Select "Retain Input Message Properties" to keep all properties of the input message in the output message, otherwise they will be cleared.
+    If an input message property conflicts with a property set by this node (ex: <code>msg.response</code>) then the input message property
+    will be overwritten.
+  </p>
+  <p>
     You can also override the properties in the "Device Info" field with <code>msg</code> properties to configure the node to send
     to different endpoints. Specifically, <code>msg.attributeId</code> will override <code>deviceInfo.attributeId</code>, and
     <code>msg.machineId</code> will override <code>deviceInfo.machineId</code>. If you override either property with every
@@ -208,9 +327,13 @@
     and <code>attribute</code> set, you can leave "Device Info" as <code>{}</code>.
   </p>
   <p>
+    If "Single attribute" is unchecked, then you can instead performed batched writes setting <code>msg.payload</code> to a list of attributes,
+    each in the format <code>{attributeId, machineId, value}</code>.
+  </p>
+  <p>
     Lastly, you can configure the HTTP agent to use keep-alive by checking "Enable Connection Keep-Alive" (default=<code>true</code>),
     and set the agent keepAliveMsecs (default=<code>10000ms</code>). Note that this sets the keep-alive behaviour of the HTTP agent,
-    which is different than setting the 'Connection': 'Keep-Alive' HTTP header (which can be set through <code>msg.headers</code>).
+    which is different than setting the "Connection": "Keep-Alive" HTTP header (which can be set through <code>msg.headers</code>).
   </p>
 
   <h3>References</h3>

@@ -1,395 +1,429 @@
 <script src="node-red-tulip-edge/js/tulip_tables_common.js"></script>
 
 <script type="text/javascript">
-  const QUERY_TYPES = this.tulip_tables_common.TABLE_QUERY_TYPES;
-  RED.nodes.registerType('tulip-tables', {
-    category: 'Tulip',
-    inputs: 1,
-    outputs: 1,
-    color: '#65CCB8',
-    icon: 'tulip.svg',
-    defaults: {
-      name: { value: 'tulip-tables' },
-      apiAuth: {
-        value: '',
-        type: 'tulip-api-auth',
-        required: true,
+  (() => {
+    const QUERY_TYPES = this.tulip_tables_common.TABLE_QUERY_TYPES;
+    RED.nodes.registerType('tulip-tables', {
+      category: 'Tulip',
+      inputs: 1,
+      outputs: 1,
+      color: '#65CCB8',
+      icon: 'tulip.svg',
+      defaults: {
+        name: { value: 'tulip-tables' },
+        apiAuth: {
+          value: '',
+          type: 'tulip-api-auth',
+          required: true,
+        },
+        keepAlive: { value: true },
+        keepAliveMsecs: { value: 10000 },
+        retainMsgProps: { value: true },
+
+        // Which API call to use
+        queryType: { value: 0 },
+
+        // String parameters
+        tableId: { value: '' },
+        queryId: { value: '' },
+        aggregationId: { value: '' },
+        recordId: { value: '' },
+        fieldId: { value: '' },
+        linkId: { value: '' },
+        sortBy: { value: '_sequenceNumber' },
+        sortByFieldId: { value: '' },
+        sortDir: { value: 'asc' },
+        function: { value: 'sum' },
+        filterAggregator: { value: 'all' },
+
+        // Ints
+        limit: { value: 10 },
+        offset: { value: 0 },
+
+        // Bool parameters
+        includeDeleted: { value: false },
+        includeTotalCount: { value: false },
+        allowRecordsInUse: { value: false },
+
+        // Arrays
+        field: { value: [] },
+        filters: { value: [] },
+        sortOptions: { value: [] },
+
+        body: { value: '{}' }, // JSON body
       },
-      keepAlive: { value: true },
-      keepAliveMsecs: { value: 10000 },
+      paletteLabel: 'tables',
+      label: function () {
+        // TODO: better naming based on what the api call actually is
+        return this.name || 'tulip-tables';
+      },
+      oneditprepare: function () {
+        const node = this;
 
-      // Which API call to use
-      queryType: { value: 0 },
-
-      // String parameters
-      tableId: { value: '' },
-      queryId: { value: '' },
-      aggregationId: { value: '' },
-      recordId: { value: '' },
-      fieldId: { value: '' },
-      linkId: { value: '' },
-      sortBy: { value: '_sequenceNumber' },
-      sortByFieldId: { value: '' },
-      sortDir: { value: 'asc' },
-      function: { value: 'sum' },
-      filterAggregator: { value: 'all' },
-
-      // Ints
-      limit: { value: 10 },
-      offset: { value: 0 },
-
-      // Bool parameters
-      includeDeleted: { value: false },
-      includeTotalCount: { value: false },
-      allowRecordsInUse: { value: false },
-
-      // Arrays
-      field: { value: [] },
-      filters: { value: [] },
-      sortOptions: { value: [] },
-
-      body: { value: '{}' }, // JSON body
-    },
-    paletteLabel: 'tables',
-    label: function () {
-      return this.name || 'tulip-machine-attribute';
-    },
-    oneditprepare: function () {
-      const node = this;
-
-      // Whether or not to show keep-alive msecs option
-      const updateKeepAlive = () => {
-        const keepAlive = $('#node-input-keepAlive').is(':checked');
-        if (keepAlive) {
-          $('#div-node-input-keepAliveMsecs').show();
-        } else {
-          $('#div-node-input-keepAliveMsecs').hide();
+        // Add retainMsgProps as a property to transition legacy nodes. Set to false since
+        // previously msg props were not retained.
+        if (!('retainMsgProps' in node)) {
+          node.retainMsgProps = false;
         }
-      };
-      updateKeepAlive();
-      $('#node-input-keepAlive').change(() => {
+
+        // Whether or not to show keep-alive msecs option
+        const updateKeepAlive = () => {
+          const keepAlive = $('#node-input-keepAlive').is(':checked');
+          if (keepAlive) {
+            $('#div-node-input-keepAliveMsecs').show();
+          } else {
+            $('#div-node-input-keepAliveMsecs').hide();
+          }
+        };
         updateKeepAlive();
-      });
-
-      // Create dropdown menu of table query types
-      const nQueryTypes = QUERY_TYPES.length;
-      const querySelect = document.getElementById('node-input-queryType');
-      for (let i = 0; i < nQueryTypes; i++) {
-        const option = document.createElement('option');
-        option.value = i;
-        option.text = QUERY_TYPES[i].text;
-        querySelect.add(option);
-      }
-      // Select the current query type
-      querySelect.selectedIndex = node.queryType;
-
-      // Show all relevant parameters to this query
-      const queryTypeInfo = QUERY_TYPES[node.queryType];
-      const params = queryTypeInfo.pathParams.concat(queryTypeInfo.queryParams);
-      params.forEach((param) => {
-        const divToShow = `#div-node-input-${param}`;
-        $(divToShow).show();
-      });
-
-      // Set the document to hide/show elements for different query selections
-      $(querySelect).data('prevQueryType', node.queryType);
-      $(querySelect).change(function (data) {
-        const newQueryType = $(this).val();
-        const oldQueryType = $(this).data('prevQueryType');
-
-        // Hide all parameters for old query type
-        const oldInfo = QUERY_TYPES[oldQueryType];
-        const oldParams = oldInfo.pathParams.concat(oldInfo.queryParams);
-        oldParams.forEach((param) => {
-          const divToHide = `#div-node-input-${param}`;
-          $(divToHide).hide();
+        $('#node-input-keepAlive').change(() => {
+          updateKeepAlive();
         });
 
-        // Show all parameters for new query type
-        const newInfo = QUERY_TYPES[newQueryType];
-        const newParams = newInfo.pathParams.concat(newInfo.queryParams);
-        newParams.forEach((param) => {
+        // Create dropdown menu of table query types
+        const nQueryTypes = QUERY_TYPES.length;
+        const querySelect = document.getElementById('node-input-queryType');
+        for (let i = 0; i < nQueryTypes; i++) {
+          const option = document.createElement('option');
+          option.value = i;
+          option.text = QUERY_TYPES[i].text;
+          querySelect.add(option);
+        }
+        // Select the current query type
+        querySelect.selectedIndex = node.queryType;
+
+        // Show all relevant parameters to this query
+        const queryTypeInfo = QUERY_TYPES[node.queryType];
+        const params = queryTypeInfo.pathParams.concat(queryTypeInfo.queryParams);
+        params.forEach((param) => {
           const divToShow = `#div-node-input-${param}`;
           $(divToShow).show();
         });
 
-        // If POST or PUT request, also show request body
-        if (newInfo.method == 'POST' || newInfo.method == 'PUT') {
-          $('#div-node-input-body').show();
-        } else {
-          $('#div-node-input-body').hide();
-        }
+        // Set the document to hide/show elements for different query selections
+        $(querySelect).data('prevQueryType', node.queryType);
+        $(querySelect).change(function (data) {
+          const newQueryType = $(this).val();
+          const oldQueryType = $(this).data('prevQueryType');
 
-        // Save the current query type
-        $(this).data('prevQueryType', newQueryType);
-      });
-
-      // Show custom sortBy field
-      const sortBySelect = document.getElementById('node-input-sortBy');
-      $(sortBySelect).change(function (data) {
-        if ($(this).val() == 'other') {
-          $(`#div-node-input-sortByOther`).show();
-        } else {
-          $(`#div-node-input-sortByOther`).hide();
-        }
-      });
-
-      // Convert JSON inputs to typedInput
-      $('#node-input-body').typedInput({
-        type: 'json',
-        types: ['json'],
-      });
-
-      // Adds an editableList widget for the given parameter `p`
-      // of the specified type `t`
-      function addEditableTypedList(param, paramType) {
-        // Creates a function to be called when adding a list item
-        // for this parameter & type
-        const getAddItem = function () {
-          return function (container, i, data) {
-            container.css({
-              overflow: 'hidden',
-              whiteSpace: 'nowrap',
-            });
-            const row = $('<div/>').appendTo(container);
-
-            // Create the TypedInput element
-            const typedInputElem = $('<input/>', {
-              class: `node-input-${param}-value`,
-              type: 'text',
-              width: '100%',
-            })
-              .appendTo(row)
-              .typedInput({
-                default: paramType,
-                types: [paramType],
-                type: paramType,
-              })
-              .typedInput('show');
-
-            // Set the TypedInput element value
-            if (data.value != undefined) {
-              typedInputElem.typedInput('value', data.value);
-            } else {
-              // Use default value based on type
-              switch (paramType) {
-                case 'str':
-                  typedInputElem.typedInput('value', '');
-                  break;
-                case 'json':
-                  typedInputElem.typedInput('value', '{}');
-                  break;
-              }
-            }
-          };
-        };
-
-        // Create the editable list
-        $(`#node-input-${param}-container`).editableList({
-          addButton: true,
-          height: 'auto',
-          scrollOnAdd: true,
-          sortable: true,
-          removable: true,
-          addItem: getAddItem(),
-        });
-
-        // Populate list with current values
-        node[param].forEach((v) => {
-          const value = paramType == 'json' ? JSON.stringify(v) : v;
-          $(`#node-input-${param}-container`).editableList('addItem', {
-            value,
+          // Hide all parameters for old query type
+          const oldInfo = QUERY_TYPES[oldQueryType];
+          const oldParams = oldInfo.pathParams.concat(oldInfo.queryParams);
+          oldParams.forEach((param) => {
+            const divToHide = `#div-node-input-${param}`;
+            $(divToHide).hide();
           });
+
+          // Show all parameters for new query type
+          const newInfo = QUERY_TYPES[newQueryType];
+          const newParams = newInfo.pathParams.concat(newInfo.queryParams);
+          newParams.forEach((param) => {
+            const divToShow = `#div-node-input-${param}`;
+            $(divToShow).show();
+          });
+
+          // If POST or PUT request, also show request body
+          if (newInfo.method == 'POST' || newInfo.method == 'PUT') {
+            $('#div-node-input-body').show();
+          } else {
+            $('#div-node-input-body').hide();
+          }
+
+          // Save the current query type
+          $(this).data('prevQueryType', newQueryType);
         });
-      }
 
-      // Add editableList widget for list parameters
-      addEditableTypedList('field', 'str');
-      addEditableTypedList('filters', 'json');
-      addEditableTypedList('sortOptions', 'json');
-    },
-    oneditsave: function () {
-      const node = this;
-
-      // Saves values in EditableList to the node config
-      function saveListValues(param, paramType) {
-        const entries = $(`#node-input-${param}-container`).editableList(
-          'items'
-        );
-        node[param] = [];
-        entries.each(function (e) {
-          // Iterate through list items in UI
-          const entry = $(this);
-          const entryValue = entry.find(`.node-input-${param}-value`).val();
-          switch (paramType) {
-            // Push non-empty values
-            case 'str':
-              if (entryValue != '') {
-                node[param].push(entryValue);
-              }
-              break;
-            case 'json':
-              if (entryValue != '{}') {
-                node[param].push(JSON.parse(entryValue));
-              }
-              break;
+        // Show custom sortBy field
+        const sortBySelect = document.getElementById('node-input-sortBy');
+        $(sortBySelect).change(function (data) {
+          if ($(this).val() == 'other') {
+            $(`#div-node-input-sortByOther`).show();
+          } else {
+            $(`#div-node-input-sortByOther`).hide();
           }
         });
-        // Overwrite the node's config
-        this[param] = node[param];
-      }
 
-      // Save list parameters
-      saveListValues('field', 'str');
-      saveListValues('filters', 'json');
-      saveListValues('sortOptions', 'json');
-    },
-  });
+        // Convert JSON inputs to typedInput
+        $('#node-input-body').typedInput({
+          type: 'json',
+          types: ['json'],
+        });
+
+        // Adds an editableList widget for the given parameter `p`
+        // of the specified type `t`
+        function addEditableTypedList(param, paramType) {
+          // Creates a function to be called when adding a list item
+          // for this parameter & type
+          const getAddItem = function () {
+            return function (container, i, data) {
+              container.css({
+                overflow: 'hidden',
+                whiteSpace: 'nowrap',
+              });
+              const row = $('<div/>').appendTo(container);
+
+              // Create the TypedInput element
+              const typedInputElem = $('<input/>', {
+                class: `node-input-${param}-value`,
+                type: 'text',
+                width: '100%',
+              })
+                .appendTo(row)
+                .typedInput({
+                  default: paramType,
+                  types: [paramType],
+                  type: paramType,
+                })
+                .typedInput('show');
+
+              // Set the TypedInput element value
+              if (data.value != undefined) {
+                typedInputElem.typedInput('value', data.value);
+              } else {
+                // Use default value based on type
+                switch (paramType) {
+                  case 'str':
+                    typedInputElem.typedInput('value', '');
+                    break;
+                  case 'json':
+                    typedInputElem.typedInput('value', '{}');
+                    break;
+                }
+              }
+            };
+          };
+
+          // Create the editable list
+          $(`#node-input-${param}-container`).editableList({
+            addButton: true,
+            height: 'auto',
+            scrollOnAdd: true,
+            sortable: true,
+            removable: true,
+            addItem: getAddItem(),
+          });
+
+          // Populate list with current values
+          node[param].forEach((v) => {
+            const value = paramType == 'json' ? JSON.stringify(v) : v;
+            $(`#node-input-${param}-container`).editableList('addItem', { value });
+          });
+        }
+
+        // Add editableList widget for list parameters
+        addEditableTypedList('field', 'str');
+        addEditableTypedList('filters', 'json');
+        addEditableTypedList('sortOptions', 'json');
+      },
+      oneditsave: function () {
+        const node = this;
+
+        // Saves values in EditableList to the node config
+        function saveListValues(param, paramType) {
+          const entries = $(`#node-input-${param}-container`).editableList('items');
+          node[param] = [];
+          entries.each(function (e) {
+            // Iterate through list items in UI
+            const entry = $(this);
+            const entryValue = entry.find(`.node-input-${param}-value`).val();
+            switch (paramType) {
+              // Push non-empty values
+              case 'str':
+                if (entryValue != '') {
+                  node[param].push(entryValue);
+                }
+                break;
+              case 'json':
+                if (entryValue != '{}') {
+                  node[param].push(JSON.parse(entryValue));
+                }
+                break;
+            }
+          });
+          // Overwrite the node's config
+          this[param] = node[param];
+        }
+
+        // Save list parameters
+        saveListValues('field', 'str');
+        saveListValues('filters', 'json');
+        saveListValues('sortOptions', 'json');
+      },
+    });
+  })();
 </script>
 
 <script type="text/html" data-template-name="tulip-tables">
-  <div class='form-row'>
-    <label for='node-input-name'><i class='fa fa-tag'></i> Name</label>
-    <input type='text' id='node-input-name' placeholder='Name'>
+  <div class="form-row">
+    <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+    <input type="text" id="node-input-name" placeholder="Name" />
   </div>
-  <div class='form-row'>
-    <label for='node-input-apiAuth'><i class='fa fa-user-circle'></i> Tulip API Authentication</label>
-    <input id='node-input-apiAuth'>
+  <div class="form-row">
+    <label for="node-input-apiAuth"
+      ><i class="fa fa-user-circle"></i> Tulip API Authentication</label
+    >
+    <input id="node-input-apiAuth" />
   </div>
-  <div class='form-row'>
-    <label for='node-input-keepAlive'> HTTP Options</label>
+  <div class="form-row">
+    <label for="node-input-keepAlive"> HTTP Options</label>
     <input
-      type='checkbox'
-      id='node-input-keepAlive'
-      autocomplete='off'
-      style='margin-left:10px; vertical-align:top; width:auto'
+      type="checkbox"
+      id="node-input-keepAlive"
+      autocomplete="off"
+      style="margin-left:10px; vertical-align:top; width:auto"
     />
-    <label for='node-input-keepAlive' style='width:auto'>Enable Connection Keep-Alive</label>
+    <label for="node-input-keepAlive" style="width:auto">Enable Connection Keep-Alive</label>
   </div>
-  <div class='form-row' id='div-node-input-keepAliveMsecs' hidden>
+  <div class="form-row" id="div-node-input-keepAliveMsecs" hidden>
     <label for="node-input-keepAliveMsecs">&nbsp;</label>
     <span style="width:auto">Keep-Alive Initial Delay (ms)</span>
-    <input type='number' min=0 step=1 id='node-input-keepAliveMsecs' value=10000 style="width:auto">
+    <input
+      type="number"
+      min="0"
+      step="1"
+      id="node-input-keepAliveMsecs"
+      value="10000"
+      style="width:auto"
+    />
   </div>
-  <div class='form-row'>
-    <label for='node-input-queryType'></i> Query Type</label>
-    <select id='node-input-queryType' style='width:70%'>
-    </select>
+  <br>
+  <div class="form-row">
+    <label for="node-input-retainMsgProps"> Output</label>
+    <input
+      type="checkbox"
+      id="node-input-retainMsgProps"
+      autocomplete="off"
+      style="margin-left:10px; vertical-align:top; width:auto"
+    />
+    <label for="node-input-retainMsgProps" style="width:auto">Retain Input Message Properties</label>
+  </div>
+  <br>
+  <div class="form-row">
+    <label for="node-input-queryType"> Query Type</label>
+    <select id="node-input-queryType" style="width:70%"></select>
   </div>
   <hr />
-  <label style='width:100%;'>
+  <label style="width:100%;">
     <h4>Query Options</h4>
   </label>
-  <div class='form-row' id='div-node-input-includeDeleted' hidden>
-    <input type='checkbox' id='node-input-includeDeleted' autocomplete='off'
-      style='margin-left:10px; vertical-align:top; width:auto'>
-    <label for='node-input-includeDeleted' style='width:auto'>Include deleted tables</label>
+  <div class="form-row" id="div-node-input-includeDeleted" hidden>
+    <input
+      type="checkbox"
+      id="node-input-includeDeleted"
+      autocomplete="off"
+      style="margin-left:10px; vertical-align:top; width:auto"
+    />
+    <label for="node-input-includeDeleted" style="width:auto">Include deleted tables</label>
   </div>
-  <div class='form-row' id='div-node-input-includeTotalCount' hidden>
-    <input type='checkbox' id='node-input-includeTotalCount' autocomplete='off'
-      style='margin-left:10px; vertical-align:top; width:auto'>
-    <label for='node-input-includeTotalCount' style='width:auto'>Include total count</label>
+  <div class="form-row" id="div-node-input-includeTotalCount" hidden>
+    <input
+      type="checkbox"
+      id="node-input-includeTotalCount"
+      autocomplete="off"
+      style="margin-left:10px; vertical-align:top; width:auto"
+    />
+    <label for="node-input-includeTotalCount" style="width:auto">Include total count</label>
   </div>
-  <div class='form-row' id='div-node-input-allowRecordsInUse' hidden>
-    <input type='checkbox' id='node-input-allowRecordsInUse' autocomplete='off'
-      style='margin-left:10px; vertical-align:top; width:auto'>
-    <label for='node-input-allowRecordsInUse' style='width:auto'>Allow records in use</label>
+  <div class="form-row" id="div-node-input-allowRecordsInUse" hidden>
+    <input
+      type="checkbox"
+      id="node-input-allowRecordsInUse"
+      autocomplete="off"
+      style="margin-left:10px; vertical-align:top; width:auto"
+    />
+    <label for="node-input-allowRecordsInUse" style="width:auto">Allow records in use</label>
   </div>
-  <div class='form-row' id='div-node-input-tableId' hidden>
-    <label for='node-input-tableId'> Table ID</label>
-    <input type='text' id='node-input-tableId' placeholder='tableId'>
+  <div class="form-row" id="div-node-input-tableId" hidden>
+    <label for="node-input-tableId"> Table ID</label>
+    <input type="text" id="node-input-tableId" placeholder="tableId" />
   </div>
-  <div class='form-row' id='div-node-input-queryId' hidden>
-    <label for='node-input-queryId'> Query ID</label>
-    <input type='text' id='node-input-queryId' placeholder='queryId'>
+  <div class="form-row" id="div-node-input-queryId" hidden>
+    <label for="node-input-queryId"> Query ID</label>
+    <input type="text" id="node-input-queryId" placeholder="queryId" />
   </div>
-  <div class='form-row' id='div-node-input-recordId' hidden>
-    <label for='node-input-recordId'> Record ID</label>
-    <input type='text' id='node-input-recordId' placeholder='recordId'>
+  <div class="form-row" id="div-node-input-recordId" hidden>
+    <label for="node-input-recordId"> Record ID</label>
+    <input type="text" id="node-input-recordId" placeholder="recordId" />
   </div>
-  <div class='form-row' id='div-node-input-aggregationId' hidden>
-    <label for='node-input-aggregationId'> Aggregation ID</label>
-    <input type='text' id='node-input-aggregationId' placeholder='aggregationId'>
+  <div class="form-row" id="div-node-input-aggregationId" hidden>
+    <label for="node-input-aggregationId"> Aggregation ID</label>
+    <input type="text" id="node-input-aggregationId" placeholder="aggregationId" />
   </div>
-  <div class='form-row' id='div-node-input-fieldId' hidden>
-    <label for='node-input-fieldId'> Field ID</label>
-    <input type='text' id='node-input-fieldId' placeholder='fieldId'>
+  <div class="form-row" id="div-node-input-fieldId" hidden>
+    <label for="node-input-fieldId"> Field ID</label>
+    <input type="text" id="node-input-fieldId" placeholder="fieldId" />
   </div>
-  <div class='form-row' id='div-node-input-linkId' hidden>
-    <label for='node-input-linkId'> Link ID</label>
-    <input type='text' id='node-input-linkId' placeholder='linkId'>
-  </div>
-  <div class='form-row' id='div-node-input-function' hidden>
-    <label for='node-input-function'> Aggregation Function</label>
-    <select id='node-input-function' style='width:70%;'>
-      <option value='sum' selected>Sum</option>
-      <option value='count'>Count</option>
-      <option value='avg'>Average</option>
-      <option value='min'>Minimum</option>
-      <option value='max'>Maximum</option>
-      <option value='mode'>Mode</option>
+  <div class="form-row" id="div-node-input-function" hidden>
+    <label for="node-input-function"> Aggregation Function</label>
+    <select id="node-input-function" style="width:70%;">
+      <option value="sum" selected>Sum</option>
+      <option value="count">Count</option>
+      <option value="avg">Average</option>
+      <option value="min">Minimum</option>
+      <option value="max">Maximum</option>
+      <option value="mode">Mode</option>
     </select>
   </div>
-  <div id='div-node-input-sortBy' hidden>
-    <div class='form-row'>
-      <label for='node-input-sortBy'> Sort By</label>
-      <select id='node-input-sortBy' style='width:70%;'>
-        <option value='_sequenceNumber' selected>Sequence Number</option>
-        <option value='_updatedAt'>Updated At</option>
-        <option value='_createdAt'>Created At</option>
-        <option value='other'>(choose table field)</option>
+  <div id="div-node-input-sortBy" hidden>
+    <div class="form-row">
+      <label for="node-input-sortBy"> Sort By</label>
+      <select id="node-input-sortBy" style="width:70%;">
+        <option value="_sequenceNumber" selected>Sequence Number</option>
+        <option value="_updatedAt">Updated At</option>
+        <option value="_createdAt">Created At</option>
+        <option value="other">(choose table field)</option>
       </select>
     </div>
-    <div class='form-row' id='div-node-input-sortByOther' hidden>
-      <label for='node-input-sortByOther'>&nbsp;</label>
-      <span style='width:70%'>
-        <span style='padding-right:2px; width:auto;'>Table Field:</span>
-        <input type='text' id='node-input-sortByOther' style='width:auto;'>
+    <div class="form-row" id="div-node-input-sortByOther" hidden>
+      <label for="node-input-sortByOther">&nbsp;</label>
+      <span style="width:70%">
+        <span style="padding-right:2px; width:auto;">Table Field:</span>
+        <input type="text" id="node-input-sortByOther" style="width:auto;" />
       </span>
     </div>
   </div>
-  <div class='form-row' id='div-node-input-sortDir' hidden>
-    <label for='node-input-sortDir'> Sort Direction</label>
-    <select id='node-input-sortDir' style='width:70%;'>
-      <option value='asc' selected>Ascending</option>
-      <option value='desc'>Descending</option>
+  <div class="form-row" id="div-node-input-sortDir" hidden>
+    <label for="node-input-sortDir"> Sort Direction</label>
+    <select id="node-input-sortDir" style="width:70%;">
+      <option value="asc" selected>Ascending</option>
+      <option value="desc">Descending</option>
     </select>
   </div>
-  <div class='form-row' id='div-node-input-sortOptions' hidden>
-    <label for='node-input-sortOptions'>Sort Options</label>
-    <ol id='node-input-sortOptions-container'></ol>
+  <div class="form-row" id="div-node-input-sortOptions" hidden>
+    <label for="node-input-sortOptions">Sort Options</label>
+    <ol id="node-input-sortOptions-container"></ol>
   </div>
-  <div class='form-row' id='div-node-input-filters' hidden>
-    <label for='node-input-filters'>Filters</label>
-    <ol id='node-input-filters-container'></ol>
+  <div class="form-row" id="div-node-input-filters" hidden>
+    <label for="node-input-filters">Filters</label>
+    <ol id="node-input-filters-container"></ol>
   </div>
-  <div class='form-row' id='div-node-input-filterAggregator' hidden>
-    <label for='node-input-filterAggregator'>Filter Aggregator</label>
-    <select id='node-input-filterAggregator' style='width:70%;'>
-      <option value='all' selected>all</option>
-      <option value='any'>any</option>
+  <div class="form-row" id="div-node-input-filterAggregator" hidden>
+    <label for="node-input-filterAggregator">Filter Aggregator</label>
+    <select id="node-input-filterAggregator" style="width:70%;">
+      <option value="all" selected>all</option>
+      <option value="any">any</option>
     </select>
   </div>
-  <div class='form-row' id='div-node-input-limit'hidden>
-    <label for='node-input-limit'> Limit</label>
-    <input type='number' min=0 step=1 id='node-input-limit' value=10>
+  <div class="form-row" id="div-node-input-limit" hidden>
+    <label for="node-input-limit"> Limit</label>
+    <input type="number" min="0" step="1" id="node-input-limit" value="10" />
   </div>
-  <div class='form-row' id='div-node-input-offset' hidden>
-    <label for='node-input-offset'> Offset</label>
-    <input type='number' min=0 step=1 id='node-input-offset' value=0>
+  <div class="form-row" id="div-node-input-offset" hidden>
+    <label for="node-input-offset"> Offset</label>
+    <input type="number" min="0" step="1" id="node-input-offset" value="0" />
   </div>
-  <div class='form-row' id='div-node-input-field' hidden>
-    <label for='node-input-field'>Fields</label>
-    <ol id='node-input-field-container'></ol>
+  <div class="form-row" id="div-node-input-field" hidden>
+    <label for="node-input-field">Fields</label>
+    <ol id="node-input-field-container"></ol>
   </div>
-  <div id='div-node-input-body'>
+  <div id="div-node-input-body">
     <hr />
-    <label style='width:100%;'>
+    <label style="width:100%;">
       <h4>Request Body Options</h4>
     </label>
-    <div class='form-row'>
-      <label for='node-input-body'> Request Body</label>
-      <input type='text' id='node-input-body'>
+    <div class="form-row">
+      <label for="node-input-body"> Request Body</label>
+      <input type="text" id="node-input-body" />
     </div>
   </div>
 </script>
@@ -398,24 +432,24 @@
   <p>Reads & manipulates data in Tulip Tables using the Tulip Tables API.</p>
 
   <h3>Inputs</h3>
-  <dl class='message-properties'>
-    <dt class='optional'>
+  <dl class="message-properties">
+    <dt class="optional">
       body
-      <span class='property-type'>JSON</span>
+      <span class="property-type">JSON</span>
     </dt>
     <dd>
       If the query type is a POST or PUT request, the body of the request. Overrides the data
       in the "Request Body" field.
     </dd>
-    <dt class='optional'>
+    <dt class="optional">
       headers
-      <span class='property-type'>JSON</span>
+      <span class="property-type">JSON</span>
     </dt>
     <dd>
-      HTTP headers to include in the request. If a POST or PUT request, the header 'Content-Type'
-      will be set to 'application/json' and will override <code>msg.headers['Content-Type']</code>.
+      HTTP headers to include in the request. If a POST or PUT request, the header "Content-Type"
+      will be set to "application/json" and will override <code>msg.headers["Content-Type"]</code>.
     </dd>
-    <dt class='optional'>
+    <dt class="optional">
       [parameter]
     </dt>
     <dd>
@@ -425,14 +459,12 @@
   </dl>
 
   <h3>Outputs</h3>
-  <ol class='node-ports'>
-      <dl class='message-properties'>
-        <dt>response <span class='property-type'>JSON</span></dt>
-        <dd>the HTTP response from the API request</dd>
+  <ol class="node-ports">
+      <dl class="message-properties">
+        <dt>response <span class="property-type">JSON</span></dt>
+        <dd>The HTTP response object from the API request.</dd>
         <dt>payload</dt>
-        <dd>
-          The parsed response body.
-        </dd>
+        <dd>The parsed response body.</dd>
       </dl>
   </ol>
 
@@ -457,9 +489,14 @@
     and the request body (if a POST or PUT request) can be set by <code>msg.body</code>.
   </p>
   <p>
+    Select "Retain Input Message Properties" to keep all properties of the input message in the output message, otherwise they will be cleared.
+    If an input message property conflicts with a property set by this node (ex: <code>msg.response</code>) then the input message property
+    will be overwritten.
+  </p>
+  <p>
     You can configure the HTTP agent to use keep-alive by checking "Enable Connection Keep-Alive" (default=<code>true</code>),
     and set the agent keepAliveMsecs (default=<code>10000ms</code>). Note that this sets the keep-alive behaviour of the HTTP agent,
-    which is different than setting the 'Connection': 'Keep-Alive' HTTP header (which can be set through <code>msg.headers</code>).
+    which is different than setting the "Connection": "Keep-Alive" HTTP header (which can be set through <code>msg.headers</code>).
   </p>
 
   <h3>References</h3>

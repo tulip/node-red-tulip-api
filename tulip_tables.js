@@ -1,14 +1,8 @@
 module.exports = function (RED) {
   'use strict';
 
-  const http = require('http');
-  const https = require('https');
-  const httpLibs = {
-    http,
-    https,
-  };
   const tulipTables = require('./static/tulip_tables_common');
-  const { doHttpRequest } = require('./utils');
+  const { doHttpRequest, getHttpAgent, getHttpLib } = require('./utils');
 
   // Tulip API node
   function TablesNode(config) {
@@ -19,16 +13,17 @@ module.exports = function (RED) {
     this.apiAuth = RED.nodes.getNode(config.apiAuth);
     this.config = config;
 
+    // Legacy nodes did not allow retaining msg props, so if property is missing default to false
+    this.retainMsgProps = 'retainMsgProps' in config ? config.retainMsgProps : false;
+
     // Use http or https depending on the factory protocol
-    const httpLib = httpLibs[this.apiAuth.protocol];
-    this.agent = new httpLib.Agent({
-      keepAlive: config.keepAlive,
-      keepAliveMsecs: config.keepAliveMsecs,
-    });
+    const httpLib = getHttpLib(this.apiAuth.protocol);
+    this.agent = getHttpAgent(httpLib, config.keepAlive, config.keepAliveMsecs);
     const node = this;
 
     const queryInfo = tulipTables.TABLE_QUERY_TYPES[config.queryType];
-    const hasBody = queryInfo.method == 'POST' || queryInfo.method == 'PUT' || queryInfo.method == 'PATCH';
+    const hasBody =
+      queryInfo.method == 'POST' || queryInfo.method == 'PUT' || queryInfo.method == 'PATCH';
 
     // Handle node inputs
     node.on('input', function (msg, send, done) {
@@ -50,7 +45,7 @@ module.exports = function (RED) {
           node.apiAuth.hostname,
           node.apiAuth.port,
           pathParams,
-          queryParams
+          queryParams,
         );
 
         // Configure request with auth
@@ -68,16 +63,18 @@ module.exports = function (RED) {
           body = JSON.stringify(rawBody);
         }
 
+        // Decide whether to pass the input msg params to the output msg
+        const sendMsg = node.retainMsgProps
+          ? (newMsg) => {
+              send({
+                ...msg,
+                ...newMsg,
+              });
+            }
+          : send;
+
         // Create, send, handle, and close HTTP request
-        doHttpRequest(
-          httpLib,
-          reqUrl,
-          options,
-          body,
-          node.error.bind(node),
-          send,
-          done
-        );
+        doHttpRequest(httpLib, reqUrl, options, body, node.error.bind(node), sendMsg, done);
       } catch (err) {
         // Catch unhandled errors so node-red doesn't crash
         done(err);
@@ -96,7 +93,7 @@ module.exports = function (RED) {
         const oldContentType = headers['content-type'];
         if (oldContentType && !oldContentType.includes('application/json')) {
           node.warn(
-            `Overriding header 'content-type'='${oldContentType}'; must be 'application/json'`
+            `Overriding header 'content-type'='${oldContentType}'; must be 'application/json'`,
           );
           headers['content-type'] = 'application/json';
         } else if (!oldContentType) {
@@ -106,20 +103,21 @@ module.exports = function (RED) {
       return headers;
     };
 
-    const getApiUrl = function (
-      protocol,
-      hostname,
-      port,
-      pathParams,
-      queryParams
-    ) {
+    const getApiUrl = function (protocol, hostname, port, pathParams, queryParams) {
       // start with valid protocol & host
       const baseUrl = `${protocol}://${hostname}`;
       const url = new URL(baseUrl);
 
+      // build the path with encoded path params
+      const encodedPathParams = { ...pathParams };
+      Object.entries(encodedPathParams).forEach(
+        ([key, value]) => (encodedPathParams[key] = encodeURIComponent(value)),
+      );
+      const encodedPath = '/api/v3' + queryInfo.pathConstructor(encodedPathParams);
+
       // build the url
       url.port = port;
-      url.pathname = '/api/v3' + queryInfo.pathConstructor(pathParams);
+      url.pathname = encodedPath;
       for (const queryParam in queryParams) {
         const queryParamVal = queryParams[queryParam];
         if (queryParamVal != undefined) {
