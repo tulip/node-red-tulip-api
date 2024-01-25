@@ -18,12 +18,10 @@
               '|1[0-9]{2}|2[0-4][0-9]|25[0-5])$',
           );
           const validHostname = new RegExp(
-            '^(([a-zA-Z0-9]|[a-zA-Z0-9]' +
-              '[a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9]' +
-              '[A-Za-z0-9\-]*[A-Za-z0-9])$',
+            '^\\w+([\.\-]\\w+)*$',
           );
-          const isValidIpAddr = name.match(validIpAddr);
-          const isValidHostname = name.match(validHostname);
+          const isValidIpAddr = validIpAddr.test(name);
+          const isValidHostname = validHostname.test(name);
           return isValidHostname || isValidIpAddr;
         },
       },
@@ -85,12 +83,15 @@
     <input type="password" id="node-config-input-apiSecret" />
   </div>
   <div class="form-tips">
-    <p><b>Tip:</b> To generate an API Key/Secret pair, you can visit:</p>
+    <p><b>Tip:</b> To generate an API token, you can visit:</p>
 
-    <p><a>https://[your-factory-url]/account-settings/bots</a></p>
+    <ul>
+      <li>Workspaces enabled: <a>https://[your-factory-url]/settings/api-tokens</a></li>
+      <li>Workspaces not enabled: <a>https://[your-factory-url]/account-settings/api-tokens</a></li>
+    </ul>
 
     <p>
-      and create a bot with the correct permissions. Make sure to write down the API Secret in a
+      and create an API token with the correct permissions. Make sure to write down the API Secret in a
       secure location, since you won't be able to view it again.
     </p>
   </div>
@@ -102,16 +103,17 @@
   <h3>Details</h3>
     <p>
       Each <code>tulip-api-auth</code> node configures authentication for using the Tulip API.
-      The API credentials should be for a bot on the specified factory instance that has the correct permissions to
+      The API credentials should be for an API token on the specified factory instance that has the correct permissions to
       make the specified API calls. Each authentication node can be shared between multiple Tulip API nodes.
     </p>
 
     <p>
-      To use the Tulip API, you will first need to create this bot by visiting:
+      To use the Tulip API, you will first need to create an API token by visiting:
     </p>
-    <p>
-      <a>https://[your-factory-url]/account-settings/bots</a>
-    </p>
+    <ul>
+      <li>Workspaces enabled: <a>https://[your-factory-url]/settings/api-tokens</a></li>
+      <li>Workspaces not enabled: <a>https://[your-factory-url]/account-settings/api-tokens</a></li>
+    </ul>
     <p>
       Make sure to write down the API Secret in a secure location, since you won't be able to view it again.
     </p>
