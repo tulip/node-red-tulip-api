@@ -12,17 +12,11 @@
         value: '',
         required: true,
         validate: function (name) {
-          const validIpAddr = new RegExp(
-            '^(([0-9]|[1-9][0-9]|1[0-9]{2}' +
-              '|2[0-4][0-9]|25[0-5])\\.){3}([0-9]|[1-9][0-9]' +
-              '|1[0-9]{2}|2[0-4][0-9]|25[0-5])$',
-          );
+          // Note: this also covers IP addresses.
           const validHostname = new RegExp(
-            '^\\w+([\.\-]\\w+)*$',
+            '^\\w+([.-]\\w+)*$',
           );
-          const isValidIpAddr = validIpAddr.test(name);
-          const isValidHostname = validHostname.test(name);
-          return isValidHostname || isValidIpAddr;
+          return validHostname.test(name);
         },
       },
       port: {
