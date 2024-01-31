@@ -31,36 +31,40 @@ const doHttpRequest = function (
       error(new Error(`Response status code ${res.statusCode}`));
     }
 
-    let body = '';
+    let respBody = '';
     res.on('data', (chunk) => {
-      body += chunk;
+      respBody += chunk;
     });
 
     // At the end of response, pass response body as msg.payload
     res.on('end', () => {
-      const convertJSON =
-        res.headers['content-type'] &&
-        res.headers['content-type'].includes('application/json');
+      try {
+        const convertJSON =
+          res.headers['content-type'] &&
+          res.headers['content-type'].includes('application/json');
 
-      // if response is JSON, parse body as JSON
-      const payload = convertJSON ? JSON.parse(body) : body;
-      const msg = {
-        response: res,
-        payload,
-      };
+        // if response is JSON, parse body as JSON
+        const payload = convertJSON ? JSON.parse(respBody) : respBody;
+        const msg = {
+          response: res,
+          payload,
+        };
 
-      send(msg);
-      done();
+        send(msg);
+        done();
+      } catch (err) {
+        done(err);
+      }
     });
+  });
+
+  req.on('error', (err) => {
+    done(err);
   });
 
   if (body) {
     req.write(body);
   }
-
-  req.on('error', (err) => {
-    done(err);
-  });
 
   req.end();
 };
@@ -118,7 +122,9 @@ const getHttpAgent = function (httpLib, keepAlive, keepAliveMsecs) {
       const agent = HttpsProxyAgent(options);
       return agent;
     } catch (err) {
-      console.error(`could not create HttpsProxyAgent from env http_proxy=${proxyUrl}`);
+      console.error(
+        `could not create HttpsProxyAgent from env http_proxy=${proxyUrl}`
+      );
     }
   }
 
